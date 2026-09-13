@@ -1,0 +1,62 @@
+#include <windows.h>
+#include "resource.h"
+
+IDI_APPICON ICON "cliplite.ico"
+
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+FILEFLAGS 0x1L
+#else
+FILEFLAGS 0x0L
+#endif
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "ClipLite"
+            VALUE "FileDescription", "ClipLite - Instant replay clipper"
+            VALUE "FileVersion", "1.0.0.0"
+            VALUE "InternalName", "ClipLite.exe"
+            VALUE "OriginalFilename", "ClipLite.exe"
+            VALUE "ProductName", "ClipLite"
+            VALUE "ProductVersion", "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+1 RT_MANIFEST "cliplite.manifest"
+
+IDD_RENAME DIALOGEX 0, 0, 300, 76
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Rename clip"
+FONT 9, "Segoe UI"
+BEGIN
+    EDITTEXT IDC_RENAME_EDIT, 10, 14, 280, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON "OK", IDOK, 130, 42, 52, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 190, 42, 52, 14
+END
+
+IDD_TRIM DIALOGEX 0, 0, 232, 92
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Trim clip"
+FONT 9, "Segoe UI"
+BEGIN
+    LTEXT "Start (s)", -1, 10, 11, 60, 10
+    EDITTEXT IDC_TRIM_START, 80, 8, 60, 14, ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT "End (s)", -1, 10, 31, 60, 10
+    EDITTEXT IDC_TRIM_END, 80, 28, 60, 14, ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT "", IDC_TRIM_INFO, 10, 48, 210, 10
+    DEFPUSHBUTTON "Export", IDOK, 66, 68, 60, 16
+    PUSHBUTTON "Cancel", IDCANCEL, 132, 68, 60, 16
+END

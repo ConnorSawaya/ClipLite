@@ -1,0 +1,7 @@
+#define IDI_APPICON 101
+#define IDD_RENAME 300
+#define IDC_RENAME_EDIT 301
+#define IDD_TRIM 302
+#define IDC_TRIM_START 310
+#define IDC_TRIM_END 311
+#define IDC_TRIM_INFO 312
