@@ -35,8 +35,6 @@ input[type="checkbox"], input[type="range"] { accent-color: var(--accent); }
 .glass::before, .popmenu::before { content: ""; position: absolute; inset: -1px; padding: 1px; border-radius: inherit; background: var(--rim); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
 .app-shell { position: relative; height: 100%; }
 .commandbar { position: absolute; z-index: 10; inset: 12px 16px auto; display: flex; align-items: center; gap: 24px; height: 50px; padding: 0 9px 0 16px; border-radius: 16px; }
-.brand { display: flex; align-items: center; flex-shrink: 0; gap: 8px; font-size: 14px; font-weight: 650; }
-.brand-mark { display: block; flex: 0 0 24px; width: 24px; height: 24px; }
 .workspace-nav { display: flex; align-items: center; gap: 3px; }
 .workspace-nav button { min-height: 32px; padding: 0 17px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 600; font-size: 12px; }
 .workspace-nav button:hover { color: var(--text); background: rgba(255, 255, 255, .05); }
@@ -216,7 +214,6 @@ select option { background: var(--panel); color: var(--text); }
   .overlay:not(#settings-overlay) { padding: 12px; }
 }
 @media (max-width: 560px) {
-  .brand span { display: none; }
   .commandbar { gap: 9px; }
   .workspace-nav button { padding-inline: 10px; }
   .sort-control select { max-width: 108px; font-size: 10px; }
