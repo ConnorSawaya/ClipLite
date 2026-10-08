@@ -1,0 +1,37 @@
+{
+  "product": "ClipLite",
+  "surface": "Windows desktop recording and clip editor, built with WebView2",
+  "direction": {
+    "style": "Apple-style clear liquid glass",
+    "confirmed_by_user": true,
+    "dark_palette_preference_confirmed": false
+  },
+  "tokens": {
+    "color": {
+      "workspace": "#141518",
+      "panel": "#1e2025",
+      "text": "#f3f4f6",
+      "muted": "#b8bcc5",
+      "accent": "#c4dff7",
+      "danger": "#ffa1a7",
+      "success": "#a7dfbd"
+    },
+    "type": {
+      "family": ["Segoe UI Variable", "Segoe UI", "system-ui", "sans-serif"],
+      "body_px": 13
+    },
+    "radii_px": {
+      "command_bar": 16,
+      "small_controls_min": 7,
+      "small_controls_max": 10
+    },
+    "motion": {
+      "ease": "cubic-bezier(0.16, 1, 0.3, 1)"
+    }
+  },
+  "assets": {
+    "source_mark": "assets/web/clip-icon.svg",
+    "windows_icon": "assets/cliplite.ico",
+    "icon_sizes_px": [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
+  }
+}

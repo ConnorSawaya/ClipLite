@@ -11,7 +11,8 @@ ClipLite is a lightweight Windows desktop recorder for instant replays. It keeps
 - **Game-aware naming** — executable + window title detection for readable clip names and thumbnails.
 - **Audio that stays correct** — desktop loopback + microphone + per-process stems (Windows process loopback). Each app and the mic get their own layer, so muting/solo/volume in the editor never drops the voice.
 - **Editor** — trim, split/delete/reorder segments, speed, crop/canvas (aspect presets + custom + fit/fill), blur boxes drawn on the preview, text overlays with position/size/color/font/alignment/timing, and export resolution/FPS/quality.
-- **Library** — local clip grid, search, play, delete, and autosaved editor projects (`*.edit.json` next to each clip).
+- **Library** — real game/app filters, search, newest/oldest/name sorting, grid/list views, playback, file actions, and autosaved editor projects (`*.edit.json` next to each clip).
+- **Desktop interface** — clear glass command bar and menus, dedicated capture and settings workspaces, and a full-window editor with a bounded preview, timeline, and scrolling audio layers.
 - **System integration** — tray icon, global hotkey, startup toggle, notifications, single-instance guard.
 
 ## Requirements
@@ -67,12 +68,14 @@ cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Release -DCLIPLITE_ASAN=ON
 
 1. Launch `ClipLite.exe` — it sits in the tray and starts buffering.
 2. Press the hotkey (`F8` by default) or click **Clip Now** to save.
-3. Open a clip from the library grid (search supported), then **Edit**.
+3. Find a clip in **Library** using search or the game/app rail, then open it and choose **Edit clip**. **More** contains rename, copy, open-folder, and delete actions.
 4. In the editor: select a timeline segment, drag trim handles, split at playhead, reorder, set speed, draw blur boxes on the preview, add text, choose crop/canvas, and adjust per-app audio (Mute/Solo + volume). Edits autosave to `<clip>.edit.json` and are non-destructive.
 5. **Save new clip** renders a new file; the original stays intact. Render progress and errors are shown in the editor footer.
 
 ### Editor tips
 
+- Video, Text, and Export controls live in the inspector. At compact window widths, open it with **Tools**.
+- The timeline stays visible while the audio-layer list scrolls independently.
 - The preview shows the selected segment and respects its speed.
 - Timeline clicks and waveform clicks seek the correct source segment.
 - Solo wins over mute: any soloed layer keeps its sound, all other removable layers are excluded.
@@ -80,9 +83,19 @@ cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Release -DCLIPLITE_ASAN=ON
 
 ### Settings
 
-Replay length, FPS, bitrate, quality, desktop/mic toggles, capture source (display/window), mic picker + level meter, per-game capture toggle, start-with-Windows, notifications, and hotkey. Stored at:
+Use **Capture** to choose a display/window, toggle PC or microphone audio, and choose a microphone. **Settings** separates Recording, Audio, Capture, and General controls, with Save settings available in every category. Replay length, FPS, bitrate, quality, per-game capture, startup, notifications, and the hotkey are stored at:
 
 - `%LOCALAPPDATA%\ClipLite\settings.ini`
+
+### Editing the interface
+
+The local WebView assets are in `assets/web/`. Installation copies these files directly. When running `build/ClipLite.exe` after a web-only change that does not relink the app, refresh its asset directory:
+
+```powershell
+cmake -E copy_directory assets/web build/web
+```
+
+See `DESIGN.md` for the implemented visual system. System fonts and local SVG/CSS assets keep the interface independent of network services.
 
 ## Storage
 
@@ -105,7 +118,7 @@ All capture and rendering happens locally on your machine. ClipLite does not upl
 
 ## Project status
 
-Active development. See `THIRD_PARTY_NOTICES.md` for attribution. No cloud auth, payments, or hosted database are included by design; the app uses mock/local data before any real crawling and respects system capture constraints.
+Active development. Capture, playback, and rendering use local files and Windows media APIs. See `THIRD_PARTY_NOTICES.md` for attribution.
 
 ## License
 

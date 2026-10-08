@@ -7,87 +7,139 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<header id="topbar">
-  <div class="brand">
-    <span class="logo-dot"></span>
-    <span class="brand-name">ClipLite</span>
-    <span id="status-chip" class="chip idle"><span class="chip-dot"></span><span id="status-text">Idle</span></span>
-  </div>
-  <div class="top-actions">
-    <div class="searchwrap">
-      <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14"/></svg>
-      <input id="search" type="text" placeholder="Search clips" autocomplete="off" spellcheck="false">
+<!--
+THESIS: A media browser and full-window editing workbench with clear control chrome.
+OWN-WORLD: User-confirmed Apple-style clear liquid glass; graphite working planes,
+silver optical rims, neutral controls, Segoe UI, and unfiltered recordings.
+STORY: Choose capture, save a replay, find its recording, and edit a new copy.
+FIRST VIEWPORT: A transmitting command bar above real media; a narrow game rail;
+one compact library toolbar; Clip Now anchored in the command bar.
+FORM: The user's explicit Apple-style clear glass choice pins this direction;
+no corroborated seed roll is claimed. Control edges settle on press.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+<div class="app-shell">
+  <header class="commandbar glass" aria-label="ClipLite controls">
+    <div class="brand"><img class="brand-mark" src="clip-icon.svg" width="24" height="24" alt=""><span>ClipLite</span></div>
+    <nav class="workspace-nav" aria-label="Workspace">
+      <button id="nav-library" aria-pressed="true" aria-controls="library-view">Library</button>
+      <button id="nav-capture" aria-pressed="false" aria-controls="capture-view">Capture</button>
+    </nav>
+    <div class="commandbar-actions">
+      <span id="status-chip" class="chip idle" role="status" aria-live="polite"><span class="chip-dot" aria-hidden="true"></span><span id="status-text">Connecting</span></span>
+      <button id="btn-clipnow" class="clipnow" title="Save the latest replay"><span class="rec-dot" aria-hidden="true"></span>Clip Now<kbd id="hotkey-hint">F8</kbd></button>
+      <button id="btn-settings" class="icon-button" aria-haspopup="dialog" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m9 3-1 3-3 1-2 5 2 5 3 1 1 3h6l1-3 3-1 2-5-2-5-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></svg></button>
     </div>
-    <button id="src-btn" class="chipbtn" title="Capture source">
-      <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 14H3V5h18z"/></svg>
-      <span id="src-label">Display</span>
-      <span class="caret">▾</span>
-    </button>
-    <button id="aud-pc" class="chipbtn tgl on" title="PC audio">
-      <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77"/></svg>
-    </button>
-    <span class="mic-wrap">
-      <button id="aud-mic" class="chipbtn tgl on" title="Microphone">
-        <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3m5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></svg>
-      </button>
-      <button id="mic-pick" class="chipbtn caretbtn" title="Choose microphone">▾</button>
-    </span>
-    <button id="btn-settings" class="gear" title="Settings">
-      <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M19.14 12.94a7.5 7.5 0 0 0 .06-.94 7.5 7.5 0 0 0-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.5 7.5 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.61.22l2.39-.96c.49.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.49.42h3.8c.24 0 .45-.18.49-.42l.36-2.54a7.3 7.3 0 0 0 1.62-.94l2.39.96c.21.1.48.01.61-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5"/></svg>
-    </button>
-    <button id="btn-clipnow" class="clipnow" title="Save last N seconds (hotkey)">
-      <span class="rec-dot"></span>Clip Now
-      <kbd id="hotkey-hint">F8</kbd>
-    </button>
-  </div>
-</header>
-
-<main id="grid-wrap">
-  <section id="grid"></section>
-
-  <div id="empty" class="empty hidden">
-    <div class="empty-icon">
-      <svg viewBox="0 0 24 24" width="46" height="46"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+  </header>
+  <div class="app-body">
+    <aside class="library-rail" aria-labelledby="games-heading">
+      <h2 id="games-heading">Games &amp; apps</h2>
+      <div id="game-filters"></div>
+    </aside>
+    <div class="workspace">
+      <section id="library-view" class="view-panel" aria-label="Library workspace">
+        <header id="topbar" class="workspace-header">
+          <div class="library-title"><h1>Library</h1><span id="library-count" aria-live="polite">Loading clips…</span><span id="library-storage"></span></div>
+          <div class="library-controls">
+            <div class="searchwrap" role="search"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><input id="search" type="search" aria-label="Search clips" placeholder="Search clips" autocomplete="off" spellcheck="false"></div>
+            <label class="sort-control" for="library-sort"><span class="sr-only">Sort clips</span><select id="library-sort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name</option></select></label>
+            <div class="view-switch" role="group" aria-label="Clip layout">
+              <button id="view-grid" aria-pressed="true" aria-label="Grid view" title="Grid view"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+              <button id="view-list" aria-pressed="false" aria-label="List view" title="List view"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 5h12M9 12h12M9 19h12M3 5h2M3 12h2M3 19h2"/></svg></button>
+            </div>
+          </div>
+        </header>
+        <main id="grid-wrap">
+          <section id="grid" aria-label="Saved clips"></section>
+          <div id="empty" class="empty hidden"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="m10 8 6 4-6 4Z"/></svg><h2 id="empty-title">No clips yet</h2><p id="empty-sub">Use Clip Now to save your first replay.</p></div>
+        </main>
+      </section>
+      <section id="capture-view" class="view-panel hidden" aria-label="Capture workspace">
+        <header class="workspace-header"><div class="library-title"><h1>Capture</h1><span id="capture-state">Connecting to the recorder…</span></div></header>
+        <main class="capture-content">
+          <div class="capture-layout">
+            <section class="capture-source-panel" aria-labelledby="capture-source-title">
+              <h2 id="capture-source-title">Source &amp; audio</h2>
+              <p class="section-note">Choose what to record and the sound to keep.</p>
+              <label class="control-label" for="src-btn">Capture source</label>
+              <button id="src-btn" class="chipbtn source-control" title="Capture source" aria-expanded="false"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span id="src-label">Display</span><svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+              <p id="capture-source-summary" class="source-detail">Choose a display or a window to record.</p>
+              <div class="capture-audio-section">
+                <h3 id="capture-audio-title">Audio</h3>
+                <div class="capture-audio-controls" role="group" aria-labelledby="capture-audio-title">
+                  <button id="aud-pc" class="chipbtn tgl on" aria-pressed="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9ZM17 8a6 6 0 0 1 0 8M19 4a11 11 0 0 1 0 16"/></svg>PC audio</button>
+                  <span class="mic-wrap"><button id="aud-mic" class="chipbtn tgl on" aria-pressed="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>Microphone</button><button id="mic-pick" class="chipbtn caretbtn" title="Choose microphone" aria-label="Choose microphone" aria-expanded="false"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button></span>
+                </div>
+                <p class="section-note">You can adjust recorded audio layers in the editor.</p>
+              </div>
+            </section>
+            <section class="capture-config" aria-labelledby="capture-recording-title">
+              <h2 id="capture-recording-title">Recording</h2>
+              <dl class="capture-specs"><div><dt>Replay length</dt><dd id="capture-replay">—</dd></div><div><dt>Target frame rate</dt><dd id="capture-fps">—</dd></div><div><dt>Target bitrate</dt><dd id="capture-bitrate">—</dd></div></dl>
+              <button id="capture-settings" class="btn-secondary">Recording settings</button>
+              <p class="section-note">Replay length, quality, and shortcuts.</p>
+            </section>
+          </div>
+        </main>
+      </section>
     </div>
-    <h2 id="empty-title">No clips yet</h2>
-    <p id="empty-sub">Press <kbd>F8</kbd> in game to save your first replay.</p>
   </div>
-</main>
-
-<div id="player-overlay" class="overlay hidden">
-  <div class="player-card player-full">
-    <video id="video" controls autoplay></video>
+</div>
+<div id="player-overlay" class="overlay hidden" role="presentation">
+  <div class="player-card player-full" role="dialog" aria-modal="true" aria-labelledby="pv-game" tabindex="-1">
+    <div class="player-picture">
+      <video id="video" controls autoplay></video>
+      <div id="pv-media-state" class="media-state hidden" role="status" aria-live="polite">
+        <strong id="pv-media-title">Loading clip…</strong>
+        <p id="pv-media-detail"></p>
+        <button id="pv-retry" class="btn-primary hidden">Retry playback</button>
+      </div>
+    </div>
     <div class="player-bar">
       <div class="player-meta">
         <strong id="pv-game">Clip</strong>
         <span id="pv-sub">—</span>
       </div>
       <div class="player-actions">
-        <button data-act="edit">Edit</button>
-        <button data-act="trim">Trim</button>
-        <button data-act="app_audio">App audio</button>
-        <button data-act="rename">Rename</button>
-        <button data-act="copy">Copy</button>
-        <button data-act="open">Folder</button>
-        <button data-act="delete" class="danger">Delete</button>
-        <button data-act="close" class="ghost">✕</button>
+        <button data-act="edit" class="btn-primary">Edit clip</button>
+        <button data-act="trim" class="btn-secondary">Trim</button>
+        <button data-act="app_audio" class="btn-secondary">App audio</button>
+        <div class="player-more-wrap">
+          <button id="pv-more" class="btn-secondary" aria-expanded="false" aria-controls="pv-more-menu">More<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+          <div id="pv-more-menu" class="popmenu player-more-menu hidden" role="group" aria-label="File actions">
+            <button data-act="rename" class="mi">Rename</button>
+            <button data-act="copy" class="mi">Copy file</button>
+            <button data-act="open" class="mi">Open folder</button>
+            <button data-act="delete" class="mi danger">Delete clip</button>
+          </div>
+        </div>
+        <button data-act="close" class="ghost" title="Close player" aria-label="Close player"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
       </div>
     </div>
   </div>
 </div>
 
-<div id="settings-overlay" class="overlay hidden">
-  <div class="settings-card">
+<div id="settings-overlay" class="overlay hidden" role="presentation">
+  <div class="settings-card settings-main" role="dialog" aria-modal="true" aria-labelledby="settings-title" tabindex="-1">
     <div class="set-head">
-      <strong>Settings</strong>
-      <button id="set-close" class="ghost" title="Close">✕</button>
+      <strong id="settings-title">Settings</strong>
+      <button id="set-close" class="ghost" title="Close settings" aria-label="Close settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
     </div>
 
-    <div class="set-section">Recording</div>
-    <div class="set-row"><label>Replay length (seconds)</label><input id="s-replay" type="number" min="5" max="7200"></div>
-    <div class="set-row"><label>FPS</label><input id="s-fps" type="number" min="1" max="240"></div>
-    <div class="set-row"><label>Bitrate (Mbps)</label><input id="s-bitrate" type="number" min="1" max="200"></div>
-    <div class="set-row"><label>Quality preset</label>
+    <div class="settings-grid">
+    <nav class="settings-nav" role="tablist" aria-label="Settings categories" aria-orientation="vertical">
+      <button id="set-nav-recording" role="tab" aria-selected="true" aria-controls="settings-recording">Recording</button>
+      <button id="set-nav-audio" role="tab" aria-selected="false" aria-controls="settings-audio" tabindex="-1">Audio</button>
+      <button id="set-nav-capture" role="tab" aria-selected="false" aria-controls="settings-capture" tabindex="-1">Capture</button>
+      <button id="set-nav-general" role="tab" aria-selected="false" aria-controls="settings-general" tabindex="-1">General</button>
+    </nav>
+    <div class="settings-panels">
+    <section id="settings-recording" class="set-group" data-settings-panel="recording" role="tabpanel" aria-labelledby="set-nav-recording">
+    <h2 class="set-section">Recording</h2>
+    <div class="set-row"><label for="s-replay">Replay length (seconds)</label><input id="s-replay" type="number" min="5" max="7200"></div>
+    <div class="set-row"><label for="s-fps">Frames per second</label><input id="s-fps" type="number" min="1" max="240"></div>
+    <div class="set-row"><label for="s-bitrate">Bitrate (Mbps)</label><input id="s-bitrate" type="number" min="1" max="200"></div>
+    <div class="set-row"><label for="s-quality">Quality preset</label>
       <select id="s-quality">
         <option value="low">Low</option>
         <option value="balanced">Balanced</option>
@@ -95,25 +147,35 @@
         <option value="custom">Custom</option>
       </select>
     </div>
+    </section>
 
-    <div class="set-section">Audio</div>
-    <div class="set-row"><label>Desktop audio</label><input id="s-desktop" type="checkbox"></div>
-    <div class="set-row"><label>Microphone</label><input id="s-mic" type="checkbox"></div>
+    <section id="settings-audio" class="set-group hidden" data-settings-panel="audio" role="tabpanel" aria-labelledby="set-nav-audio">
+    <h2 class="set-section">Audio</h2>
+    <div class="set-row"><label for="s-desktop">Desktop audio</label><input id="s-desktop" type="checkbox"></div>
+    <div class="set-row"><label for="s-mic">Microphone</label><input id="s-mic" type="checkbox"></div>
+    <p class="set-note">Audio layers can be adjusted again in the editor.</p>
+    </section>
 
-    <div class="set-section">Sources</div>
-    <div class="set-row"><label>Capture games (auto-detect)</label><input id="s-gamesmaster" type="checkbox"></div>
-    <div class="set-row"><label>Capture desktop</label><input id="s-idlecap" type="checkbox"></div>
+    <section id="settings-capture" class="set-group hidden" data-settings-panel="capture" role="tabpanel" aria-labelledby="set-nav-capture">
+    <h2 class="set-section">Capture sources</h2>
+    <div class="set-row"><label for="s-gamesmaster">Auto-detect games</label><input id="s-gamesmaster" type="checkbox"></div>
+    <div class="set-row"><label for="s-idlecap">Capture desktop</label><input id="s-idlecap" type="checkbox"></div>
     <div class="set-sub">Games</div>
     <div id="s-gamelist"></div>
+    </section>
 
-    <div class="set-section">General</div>
-    <div class="set-row"><label>Save clip hotkey</label><input id="s-hotkey" type="text" spellcheck="false" readonly placeholder="Click to set"></div>
-    <div class="set-row"><label>Start with Windows</label><input id="s-startup" type="checkbox"></div>
-    <div class="set-row"><label>Notifications</label><input id="s-notify" type="checkbox"></div>
+    <section id="settings-general" class="set-group hidden" data-settings-panel="general" role="tabpanel" aria-labelledby="set-nav-general">
+    <h2 class="set-section">General</h2>
+    <div class="set-row"><label for="s-hotkey">Save clip hotkey</label><input id="s-hotkey" type="text" spellcheck="false" readonly placeholder="Click to set"></div>
+    <div class="set-row"><label for="s-startup">Start with Windows</label><input id="s-startup" type="checkbox"></div>
+    <div class="set-row"><label for="s-notify">Notifications</label><input id="s-notify" type="checkbox"></div>
+    </section>
+    </div>
+    </div>
 
     <div class="set-actions">
       <button id="set-cancel" class="btn-secondary">Cancel</button>
-      <button id="set-save" class="btn-primary">Save</button>
+      <button id="set-save" class="btn-primary">Save settings</button>
     </div>
   </div>
 </div>
@@ -129,10 +191,11 @@
         <span id="e-save-state" class="ed-save-state" data-state="ready" aria-live="polite">Changes autosave</span>
       </div>
       <div class="ed-head-actions">
+        <button id="e-inspector-toggle" class="btn-secondary mini-btn" aria-expanded="false" aria-controls="e-inspector">Tools</button>
         <button id="e-undo" class="btn-secondary mini-btn" title="Undo (Ctrl+Z)" aria-label="Undo last edit">Undo</button>
         <button id="e-redo" class="btn-secondary mini-btn" title="Redo (Ctrl+Y)" aria-label="Redo last edit">Redo</button>
         <button id="e-reset" class="btn-secondary mini-btn" title="Discard all edits and saved project">Reset</button>
-        <button id="edit-close" class="ghost" title="Close editor" aria-label="Close editor">&times;</button>
+        <button id="edit-close" class="ghost" title="Close editor" aria-label="Close editor"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
       </div>
     </header>
 
@@ -141,6 +204,10 @@
         <section class="ed-stage" aria-label="Selected segment preview">
           <div class="video-wrap" id="e-video-wrap">
             <video id="e-video" playsinline aria-label="Selected segment preview"></video>
+            <div id="e-media-notice" class="editor-media-notice hidden" role="status">
+              <p id="e-media-detail"></p>
+              <button id="e-media-retry" class="btn-secondary mini-btn" type="button">Retry preview</button>
+            </div>
             <div id="e-preview" class="preview">
               <div id="e-text-preview" class="text-preview" aria-hidden="true"></div>
               <div id="e-regions"></div>
@@ -159,67 +226,51 @@
           </div>
         </section>
 
-        <section class="ed-timeline ed-workspace-section" aria-labelledby="e-timeline-title">
-          <div class="ed-tl-head">
-            <div>
-              <h2 id="e-timeline-title" class="ed-section-title">Timeline</h2>
-              <span id="e-segment-summary" class="ed-section-summary">Preparing segment...</span>
-            </div>
-            <span class="trim-times"><span id="e-t0">0.0s</span><span id="e-tlen"></span><span id="e-t1">0.0s</span></span>
-          </div>
-          <div class="time-ruler" id="e-ruler"></div>
-          <div class="trim-track tl" id="e-track" aria-label="Timeline. Click to seek; drag the handles to trim the selected segment.">
-            <div class="filmstrip" id="e-film"><div class="filmstrip-state">Loading preview frames...</div></div>
-            <div class="seg-layer" id="e-segs"></div>
-            <div class="trim-region" id="e-region"></div>
-            <div class="trim-playhead hidden" id="e-playhead"></div>
-            <button class="trim-handle" id="e-in" type="button" aria-label="Trim selected segment start" title="Drag to set selected segment start"><i></i></button>
-            <button class="trim-handle" id="e-out" type="button" aria-label="Trim selected segment end" title="Drag to set selected segment end"><i></i></button>
-          </div>
-          <div class="ed-tools" aria-label="Timeline actions">
-            <button id="e-split" class="tool" title="Split at playhead (S)">Split</button>
-            <button id="e-delete" class="tool danger" title="Delete selected segment (Delete)">Delete</button>
-            <button id="e-move-l" class="tool icon-tool" title="Move selected segment left" aria-label="Move selected segment left">Move left</button>
-            <button id="e-move-r" class="tool icon-tool" title="Move selected segment right" aria-label="Move selected segment right">Move right</button>
-            <span class="ed-tools-sep" aria-hidden="true"></span>
-            <label class="speed-wrap" for="e-speed" title="Playback speed of the selected segment">Speed
-              <select id="e-speed">
-                <option value="0.5">0.5x</option>
-                <option value="0.75">0.75x</option>
-                <option value="1" selected>1x</option>
-                <option value="1.25">1.25x</option>
-                <option value="1.5">1.5x</option>
-                <option value="2">2x</option>
-              </select>
-            </label>
-          </div>
-        </section>
-
-        <section class="ed-audio ed-workspace-section" aria-labelledby="e-audio-title">
-          <div class="ed-tl-head">
-            <div>
-              <h2 id="e-audio-title" class="ed-section-title">Audio layers</h2>
-              <span id="e-audio-summary" class="ed-section-summary">Loading audio layers...</span>
-            </div>
-            <span class="ed-hint">Mute a layer, or solo only the audio you want in the final render.</span>
-          </div>
-          <div class="tracks-wrap">
-            <div id="e-tracks" aria-live="polite"><div class="audio-state loading">Loading audio layers...</div></div>
-            <div class="track-playhead hidden" id="e-track-ph"></div>
-          </div>
-        </section>
       </main>
 
-      <aside class="ed-side" aria-label="Editor controls">
+      <aside id="e-inspector" class="ed-side" aria-label="Editor controls">
         <div class="ed-inspector-head">
           <strong>Selected segment</strong>
           <span id="e-inspector-detail">Preparing clip...</span>
         </div>
+        <div class="inspector-tabs" role="tablist" aria-label="Editing tools">
+          <button id="inspector-video" type="button" role="tab" aria-selected="true" aria-controls="inspector-video-panel">Video</button>
+          <button id="inspector-text" type="button" role="tab" aria-selected="false" aria-controls="inspector-text-panel" tabindex="-1">Text</button>
+          <button id="inspector-export" type="button" role="tab" aria-selected="false" aria-controls="inspector-export-panel" tabindex="-1">Export</button>
+        </div>
         <div class="ed-side-scroll">
+          <div id="inspector-video-panel" data-inspector-panel="video" role="tabpanel" aria-labelledby="inspector-video">
           <section class="ed-card">
             <h3 class="ed-card-head">Trim</h3>
             <div class="set-row"><label for="e-start">Start (s)</label><input id="e-start" type="number" min="0" step="0.1"></div>
             <div class="set-row"><label for="e-end">End (s)</label><input id="e-end" type="number" min="0" step="0.1"></div>
+          </section>
+
+          <section class="ed-card">
+            <h3 class="ed-card-head">Crop and canvas</h3>
+            <div class="set-row"><label for="e-crop-preset">Aspect</label>
+              <select id="e-crop-preset">
+                <option value="full">Full frame</option>
+                <option value="16:9">16:9</option>
+                <option value="1:1">Square 1:1</option>
+                <option value="9:16">Vertical 9:16</option>
+                <option value="4:5">Portrait 4:5</option>
+                <option value="4:3">Classic 4:3</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div class="set-row" id="e-canvas-row"><label for="e-canvas-fit">Canvas</label>
+              <select id="e-canvas-fit">
+                <option value="0" selected>Fill (crop to fit)</option>
+                <option value="1">Fit (letterbox whole frame)</option>
+              </select>
+            </div>
+            <div id="e-custom-row" class="set-row hidden"><label>X, Y, W, H</label>
+              <span class="custom-crop-inputs">
+                <input id="e-cx" type="number" class="mini" aria-label="Crop X"><input id="e-cy" type="number" class="mini" aria-label="Crop Y">
+                <input id="e-cw" type="number" class="mini" aria-label="Crop width"><input id="e-chh" type="number" class="mini" aria-label="Crop height">
+              </span>
+            </div>
           </section>
 
           <section class="ed-card">
@@ -229,7 +280,8 @@
             <button id="e-add-blur" class="btn-secondary wide">Add centered box</button>
           </section>
 
-          <section class="ed-card">
+          </div>
+          <section class="ed-card hidden" id="inspector-text-panel" data-inspector-panel="text" role="tabpanel" aria-labelledby="inspector-text">
             <h3 class="ed-card-head">Text</h3>
             <div id="e-text-list" class="blur-list"></div>
             <button id="e-add-text" class="btn-secondary wide">Add text</button>
@@ -265,34 +317,9 @@
             </div>
           </section>
 
-          <section class="ed-card">
-            <h3 class="ed-card-head">Crop and canvas</h3>
-            <div class="set-row"><label for="e-crop-preset">Aspect</label>
-              <select id="e-crop-preset">
-                <option value="full">Full frame</option>
-                <option value="16:9">16:9</option>
-                <option value="1:1">Square 1:1</option>
-                <option value="9:16">Vertical 9:16</option>
-                <option value="4:5">Portrait 4:5</option>
-                <option value="4:3">Classic 4:3</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-            <div class="set-row" id="e-canvas-row"><label for="e-canvas-fit">Canvas</label>
-              <select id="e-canvas-fit">
-                <option value="0" selected>Fill (crop to fit)</option>
-                <option value="1">Fit (letterbox whole frame)</option>
-              </select>
-            </div>
-            <div id="e-custom-row" class="set-row hidden"><label>X, Y, W, H</label>
-              <span class="custom-crop-inputs">
-                <input id="e-cx" type="number" class="mini" aria-label="Crop X"><input id="e-cy" type="number" class="mini" aria-label="Crop Y">
-                <input id="e-cw" type="number" class="mini" aria-label="Crop width"><input id="e-chh" type="number" class="mini" aria-label="Crop height">
-              </span>
-            </div>
-          </section>
 
-          <section class="ed-card">
+
+          <section class="ed-card hidden" id="inspector-export-panel" data-inspector-panel="export" role="tabpanel" aria-labelledby="inspector-export">
             <h3 class="ed-card-head">Export</h3>
             <div class="set-row"><label for="e-res">Resolution</label>
               <select id="e-res">
@@ -320,6 +347,58 @@
       </aside>
     </div>
 
+    <div class="ed-bottom" aria-label="Timeline and audio workspace">
+        <section class="ed-timeline ed-workspace-section" aria-labelledby="e-timeline-title">
+          <div class="ed-tl-head">
+            <div>
+              <h2 id="e-timeline-title" class="ed-section-title">Timeline</h2>
+              <span id="e-segment-summary" class="ed-section-summary">Preparing segment...</span>
+            </div>
+            <span class="trim-times"><span id="e-t0">0.0s</span><span id="e-tlen"></span><span id="e-t1">0.0s</span></span>
+          </div>
+          <div class="time-ruler" id="e-ruler"></div>
+          <div class="trim-track tl" id="e-track" aria-label="Timeline. Click to seek; drag the handles to trim the selected segment.">
+            <div class="filmstrip" id="e-film"><div class="filmstrip-state">Loading preview frames...</div></div>
+            <div class="seg-layer" id="e-segs"></div>
+            <div class="trim-region" id="e-region"></div>
+            <div class="trim-playhead hidden" id="e-playhead"></div>
+            <button class="trim-handle" id="e-in" type="button" aria-label="Trim selected segment start" title="Drag to set selected segment start"><i></i></button>
+            <button class="trim-handle" id="e-out" type="button" aria-label="Trim selected segment end" title="Drag to set selected segment end"><i></i></button>
+          </div>
+          <div class="ed-tools" aria-label="Timeline actions">
+            <button id="e-split" class="tool" title="Split at playhead (S)">Split</button>
+            <button id="e-delete" class="tool danger" title="Delete selected segment (Delete)">Delete</button>
+            <button id="e-move-l" class="tool icon-tool" title="Move selected segment left" aria-label="Move selected segment left"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg></button>
+            <button id="e-move-r" class="tool icon-tool" title="Move selected segment right" aria-label="Move selected segment right"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <span class="ed-tools-sep" aria-hidden="true"></span>
+            <label class="speed-wrap" for="e-speed" title="Playback speed of the selected segment">Speed
+              <select id="e-speed">
+                <option value="0.5">0.5x</option>
+                <option value="0.75">0.75x</option>
+                <option value="1" selected>1x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="ed-audio ed-workspace-section" aria-labelledby="e-audio-title">
+          <div class="ed-tl-head">
+            <div>
+              <h2 id="e-audio-title" class="ed-section-title">Audio layers</h2>
+              <span id="e-audio-summary" class="ed-section-summary">Loading audio layers...</span>
+            </div>
+            <span class="ed-hint">Mute a layer, or solo only the audio you want in the final render.</span>
+          </div>
+          <div class="tracks-wrap">
+            <div id="e-tracks" aria-live="polite"><div class="audio-state loading">Loading audio layers...</div></div>
+            <div class="track-playhead hidden" id="e-track-ph"></div>
+          </div>
+        </section>
+    </div>
+
     <footer class="ed-foot">
       <div class="ed-footer-status">
         <span id="e-render-summary">Save creates a new clip. Your original stays intact.</span>
@@ -337,11 +416,11 @@
   </section>
 </div>
 
-<div id="trim-overlay" class="overlay hidden">
-  <div class="settings-card wide">
+<div id="trim-overlay" class="overlay hidden" role="presentation">
+  <div class="settings-card trim-card" role="dialog" aria-modal="true" aria-labelledby="trim-title" tabindex="-1">
     <div class="set-head">
-      <strong>Trim clip</strong>
-      <button id="trim-close" class="ghost" title="Close">✕</button>
+      <strong id="trim-title">Trim clip</strong>
+      <button id="trim-close" class="ghost" title="Close trim" aria-label="Close trim"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
     </div>
     <video id="trim-video" controls playsinline></video>
     <div class="trim-times"><span id="t-start-label">0.0s</span><span id="t-len-label"></span><span id="t-end-label">0.0s</span></div>
@@ -352,13 +431,13 @@
       <div class="trim-handle" id="trim-out" title="Trim end"></div>
     </div>
     <div class="set-sub">Drag the handles, or type exact seconds. Play loops your selection.</div>
-    <div class="set-row"><label>Start (s)</label><input id="t-start" type="number" min="0" step="0.1"></div>
-    <div class="set-row"><label>End (s)</label><input id="t-end" type="number" min="0" step="0.1"></div>
-    <div class="set-row"><label></label><span style="display:flex;gap:6px">
+    <div class="set-row"><label for="t-start">Start (seconds)</label><input id="t-start" type="number" min="0" step="0.1"></div>
+    <div class="set-row"><label for="t-end">End (seconds)</label><input id="t-end" type="number" min="0" step="0.1"></div>
+    <div class="trim-actions">
       <button id="t-set-in" class="btn-secondary mini-btn">Set start here</button>
       <button id="t-set-out" class="btn-secondary mini-btn">Set end here</button>
       <button id="t-loop" class="btn-secondary mini-btn" aria-pressed="true">Loop: on</button>
-    </span></div>
+    </div>
     <div class="set-actions">
       <button id="trim-cancel" class="btn-secondary">Cancel</button>
       <button id="trim-render" class="btn-primary">Save trimmed clip</button>
@@ -366,11 +445,11 @@
   </div>
 </div>
 
-<div id="appaudio-overlay" class="overlay hidden">
-  <div class="settings-card">
+<div id="appaudio-overlay" class="overlay hidden" role="presentation">
+  <div class="settings-card" role="dialog" aria-modal="true" aria-labelledby="appaudio-title" tabindex="-1">
     <div class="set-head">
-      <strong>App audio</strong>
-      <button id="appaudio-close" class="ghost" title="Close">✕</button>
+      <strong id="appaudio-title">App audio</strong>
+      <button id="appaudio-close" class="ghost" title="Close app audio" aria-label="Close app audio"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
     </div>
     <div class="set-sub" id="appaudio-sub">Uncheck an app to render this clip without its sound. Everything stays checked by default.</div>
     <div id="appaudio-list"></div>
@@ -381,7 +460,7 @@
   </div>
 </div>
 
-<div id="toast" class="toast hidden"></div>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
 </body>
 </html>

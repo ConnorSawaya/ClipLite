@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-label="ClipLite">
+  <defs>
+    <linearGradient id="glass" x1="12" y1="6" x2="51" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#697383"/>
+      <stop offset=".45" stop-color="#343945"/>
+      <stop offset="1" stop-color="#1C1F26"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="10" y1="8" x2="53" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity=".84"/>
+      <stop offset=".42" stop-color="#E6ECF5" stop-opacity=".17"/>
+      <stop offset=".73" stop-color="#E6ECF5" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity=".64"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="23" y1="20" x2="42" y2="47" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D8E3F2"/>
+    </linearGradient>
+    <radialGradient id="reflection" cx="0" cy="0" r="1" gradientTransform="matrix(29 15 -13 25 15 9)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="19" fill="url(#glass)"/>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="18.5" fill="url(#reflection)"/>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="18.5" stroke="url(#rim)"/>
+  <path d="M15 5.5c4.8-1.5 10-2.1 15.5-2.1" stroke="#FFF" stroke-linecap="round" stroke-opacity=".62"/>
+  <path d="M43.5 25.4a15 15 0 1 1-4.9-5.5" stroke="url(#mark)" stroke-width="2.8" stroke-linecap="round"/>
+  <path d="m44.5 25-7.7-4.8 2.5-3.2 5.7 8Z" fill="url(#mark)"/>
+  <path d="m29 25.7 11.8 7.1L29 40V25.7Z" fill="url(#mark)"/>
+</svg>

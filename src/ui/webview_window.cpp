@@ -46,7 +46,9 @@ namespace {
 constexpr UINT IDM_PLAY_BASE = 0;
 
 const wchar_t* kWindowClass = L"ClipLiteLibraryWebWindow";
-const COLORREF kBg = RGB(11, 13, 16);
+const COLORREF kBg = RGB(20, 21, 24);
+const COLORREF kFrameBorder = RGB(70, 73, 81);
+const COLORREF kText = RGB(243, 244, 246);
 const wchar_t* kAppHost = L"https://app.cliplite.local";
 const wchar_t* kMediaHost = L"https://media.cliplite.local";
 const wchar_t* kThumbsHost = L"https://thumbs.cliplite.local";
@@ -57,6 +59,17 @@ constexpr UINT IDD_TRIM = 302;
 constexpr UINT IDC_TRIM_START = 310;
 constexpr UINT IDC_TRIM_END = 311;
 constexpr UINT IDC_TRIM_INFO = 312;
+
+void style_window_frame(HWND hwnd) {
+    const BOOL dark = TRUE;
+    const DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_ROUND;
+    // These attributes are optional; unsupported Windows versions keep system chrome.
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+    DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &kBg, sizeof(kBg));
+    DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &kText, sizeof(kText));
+    DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &kFrameBorder, sizeof(kFrameBorder));
+    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof(corners));
+}
 
 std::wstring format_duration(int64_t ms) {
     wchar_t buf[32];
@@ -247,6 +260,7 @@ std::vector<std::pair<int, std::string>> enumerate_displays() {
 
 INT_PTR CALLBACK rename_proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_INITDIALOG) {
+        style_window_frame(dlg);
         SetWindowLongPtrW(dlg, DWLP_USER, lp);
         auto* name = reinterpret_cast<std::wstring*>(lp);
         SetDlgItemTextW(dlg, IDC_RENAME_EDIT, name->c_str());
@@ -486,6 +500,7 @@ std::wstring unique_trim_path(const std::filesystem::path& src) {
 
 INT_PTR CALLBACK trim_proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_INITDIALOG) {
+        style_window_frame(dlg);
         SetWindowLongPtrW(dlg, DWLP_USER, lp);
         auto* tp = reinterpret_cast<TrimParams*>(lp);
         wchar_t buf[32]{};
@@ -2140,6 +2155,16 @@ HRESULT ControllerCreatedHandler::Invoke(HRESULT error_code,
     impl->controller = created;
     impl->controller->get_CoreWebView2(&impl->web);
 
+    Microsoft::WRL::ComPtr<ICoreWebView2Controller2> controller2;
+    if (SUCCEEDED(impl->controller.As(&controller2)) && controller2) {
+        COREWEBVIEW2_COLOR background{};
+        background.A = 255;
+        background.R = static_cast<BYTE>(kBg & 0xffu);
+        background.G = static_cast<BYTE>((kBg >> 8) & 0xffu);
+        background.B = static_cast<BYTE>((kBg >> 16) & 0xffu);
+        controller2->put_DefaultBackgroundColor(background);
+    }
+
     RECT rc;
     GetClientRect(impl->hwnd, &rc);
     impl->controller->put_Bounds(rc);
@@ -2259,7 +2284,7 @@ bool LibraryWindow::create(HINSTANCE hInstance, const std::wstring& clip_dir) {
     msg_token_ = impl;
 
     hwnd_ = CreateWindowExW(0, kWindowClass, L"ClipLite", WS_OVERLAPPEDWINDOW,
-                            CW_USEDEFAULT, CW_USEDEFAULT, 1120, 720, nullptr, nullptr, hinst_,
+                            CW_USEDEFAULT, CW_USEDEFAULT, 1440, 900, nullptr, nullptr, hinst_,
                             this);
     if (!hwnd_) {
         delete impl;
@@ -2267,6 +2292,19 @@ bool LibraryWindow::create(HINSTANCE hInstance, const std::wstring& clip_dir) {
         return false;
     }
     impl->hwnd = hwnd_;
+    MONITORINFO monitor{sizeof(monitor)};
+    if (GetMonitorInfoW(MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST), &monitor)) {
+        const UINT dpi = GetDpiForWindow(hwnd_);
+        const int scale = static_cast<int>(dpi ? dpi : USER_DEFAULT_SCREEN_DPI);
+        const int work_width = static_cast<int>(monitor.rcWork.right - monitor.rcWork.left);
+        const int work_height = static_cast<int>(monitor.rcWork.bottom - monitor.rcWork.top);
+        const int width = std::min(MulDiv(1440, scale, USER_DEFAULT_SCREEN_DPI), work_width);
+        const int height = std::min(MulDiv(900, scale, USER_DEFAULT_SCREEN_DPI), work_height);
+        SetWindowPos(hwnd_, nullptr, monitor.rcWork.left + (work_width - width) / 2,
+                     monitor.rcWork.top + (work_height - height) / 2, width, height,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    style_window_frame(hwnd_);
     SetTimer(hwnd_, 2, 400, nullptr);  // render-job progress polling
     impl->ensure_web_started();
     return true;
@@ -2367,6 +2405,21 @@ LRESULT CALLBACK LibraryWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     if (!self) return DefWindowProcW(hwnd, msg, wp, lp);
 
     switch (msg) {
+        case WM_GETMINMAXINFO: {
+            auto* bounds = reinterpret_cast<MINMAXINFO*>(lp);
+            const UINT dpi = GetDpiForWindow(hwnd);
+            const int scale = static_cast<int>(dpi ? dpi : USER_DEFAULT_SCREEN_DPI);
+            bounds->ptMinTrackSize.x = MulDiv(600, scale, USER_DEFAULT_SCREEN_DPI);
+            bounds->ptMinTrackSize.y = MulDiv(520, scale, USER_DEFAULT_SCREEN_DPI);
+            MONITORINFO monitor{sizeof(monitor)};
+            if (GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &monitor)) {
+                bounds->ptMinTrackSize.x = std::min(bounds->ptMinTrackSize.x,
+                                                  monitor.rcWork.right - monitor.rcWork.left);
+                bounds->ptMinTrackSize.y = std::min(bounds->ptMinTrackSize.y,
+                                                  monitor.rcWork.bottom - monitor.rcWork.top);
+            }
+            return 0;
+        }
         case WM_SIZE: {
             auto* impl = static_cast<LibraryWindowImpl*>(self->impl_slot());
             if (impl && impl->controller) {

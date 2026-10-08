@@ -14,6 +14,125 @@ let currentId = null;
 let toastTimer = 0;
 let pcOn = true;
 let micOn = true;
+let clipHotkey = "F8";
+let appView = "library";
+let selectedGame = "";
+let libraryView = "grid";
+let captureStatus = null;
+let captureSettings = null;
+let sourceReady = false;
+const dialogStack = [];
+const backgroundInert = new Map();
+
+function focusableIn(root) {
+  return [...root.querySelectorAll('button, input, select, textarea, a[href], video[controls], [tabindex], [contenteditable="true"]')]
+    .filter((el) => el.tabIndex >= 0 && !el.matches(":disabled") &&
+      !el.closest("[inert]") && el.getClientRects().length > 0);
+}
+
+function focusVisible(el) {
+  if (!el || el === document.body || el === document.documentElement ||
+      !el.isConnected || el.closest("[inert]") || !el.getClientRects().length) return false;
+  el.focus({ preventScroll: true });
+  return document.activeElement === el;
+}
+
+function clipCard(id) {
+  return [...grid.querySelectorAll(".card")].find((card) => card.dataset.id === id);
+}
+
+function focusAppFallback() {
+  return [grid.querySelector(".card"), $("search"), $("nav-" + appView), $("btn-clipnow")]
+    .some((el) => focusVisible(el));
+}
+
+function currentDialog() {
+  return dialogStack[dialogStack.length - 1];
+}
+
+function syncDialogBackground() {
+  const active = currentDialog();
+  for (const el of document.body.children) {
+    if (["SCRIPT", "STYLE", "LINK"].includes(el.tagName) || el === toastEl) continue;
+    if (active) {
+      if (!backgroundInert.has(el)) backgroundInert.set(el, el.inert);
+      el.inert = el !== active.overlay;
+    } else if (backgroundInert.has(el)) {
+      el.inert = backgroundInert.get(el);
+    }
+  }
+  if (!active) backgroundInert.clear();
+}
+
+function showDialog(dialogOverlay, preferredFocus, replaces) {
+  closeMenus();
+  let entry = dialogStack.find((item) => item.overlay === dialogOverlay);
+  if (!entry) {
+    const active = document.activeElement;
+    const activeCard = active.closest && active.closest(".card");
+    const previous = replaces && dialogStack.find((item) => item.overlay === replaces);
+    entry = {
+      overlay: dialogOverlay,
+      root: dialogOverlay.querySelector('[role="dialog"]') || dialogOverlay.firstElementChild,
+      returnFocus: previous ? previous.returnFocus : active,
+      returnClip: previous ? previous.returnClip :
+        (activeCard ? activeCard.dataset.id : currentId)
+    };
+    if (replaces) hideDialog(replaces, false);
+    dialogStack.push(entry);
+  }
+  dialogOverlay.classList.remove("hidden");
+  syncDialogBackground();
+  if (currentDialog() !== entry) return;
+  if (!focusVisible(preferredFocus) && !focusVisible(focusableIn(entry.root)[0])) {
+    entry.root.tabIndex = -1;
+    focusVisible(entry.root);
+  }
+}
+
+function hideDialog(dialogOverlay, restoreFocus = true) {
+  const index = dialogStack.findIndex((item) => item.overlay === dialogOverlay);
+  const entry = index >= 0 ? dialogStack.splice(index, 1)[0] : null;
+  dialogOverlay.classList.add("hidden");
+  syncDialogBackground();
+  if (!restoreFocus || !entry) return;
+  const active = currentDialog();
+  if (active) {
+    if (active.root.contains(entry.returnFocus) && focusVisible(entry.returnFocus)) return;
+    if (!focusVisible(focusableIn(active.root)[0])) {
+      active.root.tabIndex = -1;
+      focusVisible(active.root);
+    }
+  } else if (!focusVisible(entry.returnFocus) && !focusVisible(clipCard(entry.returnClip))) {
+    focusAppFallback();
+  }
+}
+
+document.addEventListener("keydown", (event) => {
+  const active = currentDialog();
+  if (!active || event.defaultPrevented || event.key !== "Tab") return;
+  const controls = focusableIn(active.root);
+  const index = controls.indexOf(document.activeElement);
+  if (!controls.length) {
+    event.preventDefault();
+    active.root.tabIndex = -1;
+    focusVisible(active.root);
+  } else if (index < 0 || (event.shiftKey && index === 0) ||
+      (!event.shiftKey && index === controls.length - 1)) {
+    event.preventDefault();
+    focusVisible(controls[event.shiftKey ? controls.length - 1 : 0]);
+  }
+});
+
+document.addEventListener("focusin", (event) => {
+  const active = currentDialog();
+  if (active && !active.root.contains(event.target)) {
+    if (!focusVisible(focusableIn(active.root)[0])) {
+      active.root.tabIndex = -1;
+      focusVisible(active.root);
+    }
+  }
+});
 
 function post(msg) {
   if (window.chrome && window.chrome.webview) {
@@ -33,35 +152,253 @@ function fmtSize(bytes) {
   return mb >= 100 ? Math.round(mb) + " MB" : mb.toFixed(1) + " MB";
 }
 
+function clipGame(clip) {
+  return typeof clip.game === "string" ? clip.game.trim() : "";
+}
+
+function clipTitle(clip) {
+  return clip.game || clip.file || clip.id || "Clip";
+}
+
+function updateGameSelection() {
+  const filters = $("game-filters");
+  if (!filters) return;
+  filters.querySelectorAll("button[data-game]").forEach((button) => {
+    const selected = button.dataset.game === selectedGame;
+    button.setAttribute("aria-pressed", String(selected));
+    button.classList.toggle("active", selected);
+  });
+}
+
+function renderGameFilters() {
+  const filters = $("game-filters");
+  if (!filters) return;
+  const groups = new Map();
+  for (const clip of clips) {
+    const game = clipGame(clip);
+    if (game) groups.set(game, (groups.get(game) || 0) + 1);
+  }
+  if (selectedGame && !groups.has(selectedGame)) selectedGame = "";
+  const focused = filters.contains(document.activeElement) ? document.activeElement.dataset.game : null;
+  filters.innerHTML = [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }))
+    .map(([game, count]) => `<button type="button" class="game-filter" data-game="${esc(game)}" aria-pressed="${game === selectedGame}" aria-label="${esc(game + ", " + count + (count === 1 ? " clip" : " clips"))}" title="${esc(game)}"><span class="game-name">${esc(game)}</span><span class="game-count" aria-hidden="true">${count.toLocaleString()}</span></button>`)
+    .join("");
+  if (!groups.size) filters.innerHTML = '<span class="game-filter-empty">Game groups appear as clips are saved.</span>';
+  updateGameSelection();
+  if (focused) {
+    const replacement = [...filters.querySelectorAll("button[data-game]")]
+      .find((button) => button.dataset.game === focused);
+    if (!focusVisible(replacement)) focusVisible($("nav-library"));
+  }
+}
+
+function showAppView(view) {
+  const next = view === "capture" ? "capture" : "library";
+  const changed = next !== appView;
+  appView = next;
+  document.body.dataset.appView = appView;
+  closeMenus();
+  for (const mode of ["library", "capture"]) {
+    const page = $(mode + "-view");
+    const button = $("nav-" + mode);
+    if (page) {
+      page.classList.toggle("hidden", mode !== appView);
+      page.hidden = mode !== appView;
+    }
+    if (button) button.setAttribute("aria-pressed", String(mode === appView));
+  }
+  if (changed && appView === "capture") {
+    post({ cmd: "get_settings" });
+    post({ cmd: "list_sources" });
+  }
+}
+
+function setLibraryView(view) {
+  libraryView = view === "list" ? "list" : "grid";
+  grid.classList.toggle("list-view", libraryView === "list");
+  for (const mode of ["grid", "list"]) {
+    const button = $("view-" + mode);
+    if (button) button.setAttribute("aria-pressed", String(mode === libraryView));
+  }
+}
+
+function updateCaptureSummary() {
+  const state = $("capture-state");
+  if (state) {
+    const known = captureStatus && typeof captureStatus.recording === "boolean";
+    state.textContent = known ? (captureStatus.recording ? "Recording" : "Idle") : "Loading status…";
+    state.dataset.state = known ? (captureStatus.recording ? "live" : "idle") : "unknown";
+  }
+  for (const [id, field, unit] of [
+    ["capture-replay", "replay", "s"],
+    ["capture-fps", "fps", "fps"],
+    ["capture-bitrate", "bitrate", "Mbps"]
+  ]) {
+    const element = $(id);
+    const value = captureSettings && captureSettings[field];
+    if (element) element.textContent = typeof value === "number" && Number.isFinite(value) && value > 0
+      ? value.toLocaleString() + " " + unit : "—";
+  }
+  const source = $("capture-source-summary");
+  if (source) {
+    let summary = "Loading source…";
+    if (sourceReady) {
+      if (srcMode === "window") {
+        summary = "Window · " + (srcWinTitle || srcWinExe || "No window selected");
+        if (srcWinTitle && srcWinExe) summary += " · " + srcWinExe;
+      } else {
+        const display = displays.find((item) => item.i === activeDisp);
+        summary = "Entire desktop · " + (display ? display.label : "Display " + (activeDisp + 1));
+      }
+    }
+    source.textContent = summary;
+    source.title = summary;
+  }
+}
+
+function selectInspectorPanel(key, moveFocus = false) {
+  const keys = ["video", "text", "export"];
+  if (!keys.includes(key)) return;
+  const panels = [...document.querySelectorAll("[data-inspector-panel]")];
+  const focusWillHide = panels.some((panel) =>
+    panel.dataset.inspectorPanel !== key && panel.contains(document.activeElement));
+  for (const name of keys) {
+    const tab = $("inspector-" + name);
+    if (!tab) continue;
+    tab.setAttribute("aria-selected", String(name === key));
+    tab.tabIndex = name === key ? 0 : -1;
+    const panel = panels.find((item) => item.dataset.inspectorPanel === name);
+    if (panel) {
+      if (!panel.id) panel.id = "inspector-" + name + "-panel";
+      tab.setAttribute("aria-controls", panel.id);
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tab.id);
+      panel.classList.toggle("hidden", name !== key);
+      panel.hidden = name !== key;
+      panel.inert = name !== key;
+    }
+  }
+  if (moveFocus || focusWillHide) focusVisible($("inspector-" + key));
+}
+
+function setInspectorOpen(open, moveFocus = false) {
+  const pane = $("e-inspector");
+  const toggle = $("e-inspector-toggle");
+  const focusedInside = pane.contains(document.activeElement);
+  $("edit-overlay").querySelector(".editor-shell").classList.toggle("inspector-open", open);
+  toggle.setAttribute("aria-expanded", String(open));
+  pane.inert = window.innerWidth <= 800 && !open;
+  if (open && moveFocus) focusVisible(pane.querySelector('[role="tab"][aria-selected="true"]'));
+  else if (!open && focusedInside) focusVisible(toggle);
+}
+
+function selectSettingsPage(key, moveFocus = false) {
+  for (const name of ["recording", "audio", "capture", "general"]) {
+    const active = name === key;
+    const tab = $("set-nav-" + name);
+    const pane = $("settings-" + name);
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+    pane.classList.toggle("hidden", !active);
+    pane.hidden = !active;
+    pane.inert = !active;
+  }
+  $("settings-overlay").querySelector(".settings-panels").scrollTop = 0;
+  if (moveFocus) focusVisible($("set-nav-" + key));
+}
+
+function playerMediaState(mode, title = "", detail = "", retry = false) {
+  const state = $("pv-media-state");
+  state.classList.toggle("hidden", mode === "ready");
+  state.dataset.mode = mode;
+  $("pv-media-title").textContent = title;
+  $("pv-media-detail").textContent = detail;
+  $("pv-retry").classList.toggle("hidden", !retry);
+  $("pv-retry").textContent = mode === "paused" ? "Play clip" : "Retry playback";
+}
+
+function handlePlayerPlayFailure(error) {
+  if (overlay.classList.contains("hidden") || error.name === "AbortError") return;
+  if (error.name === "NotAllowedError") {
+    playerMediaState("paused", "Playback paused", "Choose Play clip to start playback.", true);
+  } else {
+    playerMediaState("error", "Unable to play this clip", "Try again, or open the original file from More → Open folder.", true);
+  }
+}
+
+function updateLibrarySummary(visible, filtered) {
+  const count = $("library-count");
+  if (count) count.textContent = filtered
+    ? `${visible.length.toLocaleString()} of ${clips.length.toLocaleString()} clips`
+    : `${clips.length.toLocaleString()} clip${clips.length === 1 ? "" : "s"}`;
+  const storage = $("library-storage");
+  if (storage) {
+    const known = clips.length > 0 && clips.every((c) =>
+      typeof c.size === "number" && Number.isFinite(c.size) && c.size >= 0);
+    storage.classList.toggle("hidden", !known);
+    if (known) {
+      let bytes = clips.reduce((sum, c) => sum + c.size, 0);
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let unit = 0;
+      while (bytes >= 1024 && unit < units.length - 1) { bytes /= 1024; unit++; }
+      storage.textContent = bytes.toLocaleString(undefined, {
+        maximumFractionDigits: unit === 0 || bytes >= 100 ? 0 : 1
+      }) + " " + units[unit] + " on disk";
+    } else storage.textContent = "";
+  }
+}
+
+function updateEmptyHotkey() {
+  if ($("search").value.trim() || selectedGame) return;
+  $("empty-sub").innerHTML = clipHotkey
+    ? `Press <kbd>${esc(clipHotkey)}</kbd> in game to save your first replay.`
+    : "Choose Clip Now to save your first replay.";
+}
+
 function render() {
   const q = ($("search").value || "").trim().toLowerCase();
-  const visible = q
-    ? clips.filter((c) => ((c.game || "") + " " + (c.file || c.id)).toLowerCase().includes(q))
-    : clips;
+  const visible = clips.filter((c) => (!selectedGame || clipGame(c) === selectedGame) &&
+    (!q || ((c.game || "") + " " + (c.file || c.id)).toLowerCase().includes(q)));
+  const sort = $("library-sort") ? $("library-sort").value : "newest";
+  if (sort === "oldest") visible.reverse();
+  else if (sort === "name") visible.sort((a, b) =>
+    clipTitle(a).localeCompare(clipTitle(b), undefined, { sensitivity: "base", numeric: true }) ||
+    (a.file || a.id || "").localeCompare(b.file || b.id || "", undefined, { sensitivity: "base", numeric: true }));
 
-  grid.innerHTML = visible.map((c, i) => `
-    <article class="card" style="animation-delay:${Math.min(i * 25, 250)}ms" data-id="${esc(c.id)}">
-      <div class="thumbwrap">
+  const focusedCard = document.activeElement.closest && document.activeElement.closest(".card");
+  const focusedId = focusedCard && focusedCard.dataset.id;
+  grid.innerHTML = visible.map((c) => `
+    <button type="button" class="card" data-id="${esc(c.id)}" title="${esc(c.file || c.id || c.game || "Clip")}" aria-label="${esc("Play " + (c.game || c.file || c.id || "clip") + (c.dur ? ", " + c.dur : ""))}">
+      <span class="thumbwrap">
         ${c.thumb
-          ? `<img src="${c.thumb}" alt="" draggable="false">`
-          : `<div class="thumb-ph"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M8 5v14l11-7z"/></svg></div>`}
+          ? `<img src="${esc(c.thumb)}" alt="" draggable="false" loading="lazy" decoding="async">`
+          : `<span class="thumb-ph"><svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg></span>`}
         <span class="badge">${esc(c.dur || "--:--")}</span>
-      </div>
-      <div class="card-meta">
-        <div class="card-title">${esc(c.game)}</div>
-        <div class="card-sub">${esc(c.date)}${c.size ? " · " + fmtSize(c.size) : ""}</div>
-      </div>
-    </article>`).join("");
+      </span>
+      <span class="card-meta">
+        <span class="card-title">${esc(c.game || c.file || c.id || "Clip")}</span>
+        <span class="card-sub">${esc(c.date)}${c.size ? " · " + fmtSize(c.size) : ""}</span>
+      </span>
+    </button>`).join("");
+  if (focusedId && !focusVisible(clipCard(focusedId))) {
+    focusAppFallback();
+  }
+  updateLibrarySummary(visible, !!q || !!selectedGame);
 
   empty.classList.toggle("hidden", visible.length !== 0);
   empty.classList.toggle("show", visible.length === 0);
   if (visible.length === 0) {
     if (q) {
       $("empty-title").textContent = "No matches";
-      $("empty-sub").textContent = "Try a different search.";
+      $("empty-sub").textContent = selectedGame
+        ? "Try a different search or choose Library." : "Try a different search.";
+    } else if (selectedGame) {
+      $("empty-title").textContent = "No clips for " + selectedGame;
+      $("empty-sub").textContent = "Choose Library to see the rest of your clips.";
     } else {
       $("empty-title").textContent = "No clips yet";
-      $("empty-sub").innerHTML = "Press <kbd>F8</kbd> in game to save your first replay.";
+      updateEmptyHotkey();
     }
   }
 }
@@ -78,6 +415,7 @@ function handle(m) {
   switch (m.type) {
     case "clips":
       clips = m.clips || [];
+      renderGameFilters();
       render();
       break;
     case "status":
@@ -85,23 +423,41 @@ function handle(m) {
       break;
     case "thumb": {
       const c = clips.find((x) => x.id === m.id);
-      if (c && m.thumb) { c.thumb = m.thumb; render(); }
+      if (c && m.thumb) {
+        c.thumb = m.thumb;
+        const card = clipCard(c.id);
+        if (card) {
+          const thumb = card.querySelector(".thumbwrap");
+          let img = thumb.querySelector("img");
+          if (!img) {
+            img = document.createElement("img");
+            img.alt = "";
+            img.draggable = false;
+            img.loading = "lazy";
+            img.decoding = "async";
+            thumb.prepend(img);
+          }
+          img.src = m.thumb;
+          const placeholder = thumb.querySelector(".thumb-ph");
+          if (placeholder) placeholder.remove();
+        }
+      }
       break;
     }
     case "play_url": {
       const c = clips.find((x) => x.id === m.id);
-      $("pv-game").textContent = c ? c.game : "Clip";
+      $("pv-game").textContent = c ? (c.game || c.file || c.id || "Clip") : "Clip";
       $("pv-sub").textContent = c ? `${c.date || ""} · ${c.dur || ""}` : "";
       video.src = m.url;
-      overlay.classList.remove("hidden");
-      video.play().catch(() => {});
+      showDialog(overlay, overlay.querySelector('[data-act="edit"]'));
+      video.play().catch(handlePlayerPlayFailure);
       break;
     }
     case "progress": {
       const w = $("e-progress-wrap");
       if (w.classList.contains("hidden")) {
         w.classList.remove("hidden");
-        editOv.classList.remove("hidden");
+        showDialog(editOv, $("e-progress-cancel"));
       }
       $("e-progress-bar").style.transform = "scaleX(" + Math.min(100, Math.max(0, m.pct || 0)) / 100 + ")";
       $("e-progress-text").textContent = "Rendering... " + (m.pct || 0) + "%";
@@ -189,24 +545,26 @@ function handle(m) {
       closePlayer();
       break;
     case "settings":
+      captureSettings = m;
+      updateCaptureSummary();
       $("s-replay").value = m.replay;
       $("s-fps").value = m.fps;
       $("s-bitrate").value = m.bitrate;
       $("s-quality").value = m.quality || "balanced";
       $("s-desktop").checked = !!m.desktop;
       $("s-mic").checked = !!m.mic;
-      $("s-hotkey").value = m.hotkey || "F8";
+      $("s-hotkey").value = m.hotkey || "(none)";
       $("s-startup").checked = !!m.startup;
       $("s-notify").checked = !!m.notifications;
       $("s-idlecap").checked = !!m.idlecap;
       $("s-gamesmaster").checked = !!m.gamesmaster;
       const gl = $("s-gamelist");
       gl.innerHTML = "";
-      (m.games || []).forEach((g) => {
+      (m.games || []).forEach((g, i) => {
         if (!g.n) return;
         const row = document.createElement("div");
         row.className = "set-row";
-        row.innerHTML = `<label>${esc(g.n)}</label><input type="checkbox" data-game="${esc(g.n)}">`;
+        row.innerHTML = `<label for="s-game-${i}">${esc(g.n)}</label><input id="s-game-${i}" type="checkbox" data-game="${esc(g.n)}">`;
         row.querySelector("input").checked = !!g.c;
         gl.appendChild(row);
       });
@@ -222,6 +580,7 @@ function handle(m) {
       updateSrcLabel();
       break;
     case "sources":
+      sourceReady = true;
       srcMode = m.mode === "window" ? "window" : "display";
       srcWinExe = m.window_exe || "";
       srcWinTitle = m.window_title || "";
@@ -252,19 +611,28 @@ function handle(m) {
 }
 
 function setStatus(st) {
+  captureStatus = st;
+  updateCaptureSummary();
   const chip = $("status-chip");
   const live = !!st.recording;
   chip.className = "chip " + (live ? "live" : "idle");
   $("status-text").textContent = live ? "Recording · " + (st.game || "Desktop") : "Idle";
   document.title = live ? "ClipLite — recording" : "ClipLite";
-  if (st.hotkey) $("hotkey-hint").textContent = st.hotkey;
+  if (st.hotkey !== undefined) {
+    clipHotkey = st.hotkey || "";
+    $("hotkey-hint").textContent = clipHotkey;
+    $("hotkey-hint").classList.toggle("hidden", !clipHotkey);
+    updateEmptyHotkey();
+  }
   if (st.desktop !== undefined) {
     pcOn = !!st.desktop;
     $("aud-pc").classList.toggle("on", pcOn);
+    $("aud-pc").setAttribute("aria-pressed", String(pcOn));
   }
   if (st.mic !== undefined) {
     micOn = !!st.mic;
     $("aud-mic").classList.toggle("on", micOn);
+    $("aud-mic").setAttribute("aria-pressed", String(micOn));
   }
 }
 
@@ -279,7 +647,7 @@ function closePlayer() {
   try { video.pause(); } catch (e) {}
   video.removeAttribute("src");
   try { video.load(); } catch (e) {}
-  overlay.classList.add("hidden");
+  hideDialog(overlay);
 }
 
 grid.addEventListener("click", (e) => {
@@ -292,13 +660,48 @@ grid.addEventListener("click", (e) => {
 $("search").addEventListener("input", render);
 $("btn-clipnow").addEventListener("click", () => post({ cmd: "clip_now" }));
 $("btn-settings").addEventListener("click", openSettings);
+if ($("capture-settings")) $("capture-settings").addEventListener("click", openSettings);
+if ($("nav-library")) $("nav-library").addEventListener("click", () => {
+  selectedGame = "";
+  updateGameSelection();
+  showAppView("library");
+  render();
+});
+if ($("nav-capture")) $("nav-capture").addEventListener("click", () => showAppView("capture"));
+if ($("game-filters")) $("game-filters").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-game]");
+  if (!button) return;
+  selectedGame = button.dataset.game;
+  updateGameSelection();
+  showAppView("library");
+  render();
+});
+if ($("library-sort")) $("library-sort").addEventListener("change", render);
+if ($("view-grid")) $("view-grid").addEventListener("click", () => setLibraryView("grid"));
+if ($("view-list")) $("view-list").addEventListener("click", () => setLibraryView("list"));
+for (const key of ["video", "text", "export"]) {
+  const tab = $("inspector-" + key);
+  if (!tab) continue;
+  tab.addEventListener("click", () => selectInspectorPanel(key));
+  tab.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const keys = ["video", "text", "export"];
+    const index = keys.indexOf(key);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? keys.length - 1 :
+      ["ArrowLeft", "ArrowUp"].includes(event.key) ? (index + keys.length - 1) % keys.length : (index + 1) % keys.length;
+    selectInspectorPanel(keys[next], true);
+  });
+}
 
 function openSettings() {
+  selectSettingsPage("recording");
   post({ cmd: "get_settings" });
-  $("settings-overlay").classList.remove("hidden");
+  showDialog($("settings-overlay"), $("s-replay"));
 }
 function closeSettings() {
-  $("settings-overlay").classList.add("hidden");
+  hideDialog($("settings-overlay"));
 }
 $("set-close").addEventListener("click", closeSettings);
 $("set-cancel").addEventListener("click", closeSettings);
@@ -322,17 +725,26 @@ $("set-save").addEventListener("click", () => {
       .map((i) => `${i.dataset.game}=${i.checked ? 1 : 0}`)
       .join(",")
   });
+  post({ cmd: "get_settings" });
   closeSettings();
   showToast("Settings saved");
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
-  if (!$("settings-overlay").classList.contains("hidden")) return closeSettings();
-  if (!$("appaudio-overlay").classList.contains("hidden")) return closeAppAudio();
-  if (!$("trim-overlay").classList.contains("hidden")) return closeTrim();
-  if (!$("edit-overlay").classList.contains("hidden")) return closeEditor();
-  if (!overlay.classList.contains("hidden")) closePlayer();
+  if (e.defaultPrevented || e.key !== "Escape") return;
+  if (!srcMenu.classList.contains("hidden") || !micPop.classList.contains("hidden") || !$("pv-more-menu").classList.contains("hidden")) {
+    e.preventDefault();
+    closeMenus(true);
+    return;
+  }
+  const active = currentDialog();
+  if (!active) return;
+  e.preventDefault();
+  if (active.overlay.id === "settings-overlay") closeSettings();
+  else if (active.overlay.id === "appaudio-overlay") closeAppAudio();
+  else if (active.overlay.id === "trim-overlay") closeTrim();
+  else if (active.overlay.id === "edit-overlay") closeEditor();
+  else closePlayer();
 });
 // Double-clicking the playing video jumps straight into the full editor.
 video.addEventListener("dblclick", () => {
@@ -345,6 +757,8 @@ overlay.querySelector(".player-actions").addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
   const act = btn.dataset.act;
+  if (!act) return;
+  closeMenus();
   if (act === "close") return closePlayer();
   if (!currentId) return;
   if (act === "edit") { editId = currentId; openEditor(); return; }
@@ -352,6 +766,45 @@ overlay.querySelector(".player-actions").addEventListener("click", (e) => {
   if (act === "app_audio") { openAppAudio(currentId); return; }
   post({ cmd: act, id: currentId });
 });
+
+$("pv-more").addEventListener("click", () => {
+  const menu = $("pv-more-menu");
+  const opening = menu.classList.contains("hidden");
+  closeMenus();
+  menu.classList.toggle("hidden", !opening);
+  $("pv-more").setAttribute("aria-expanded", String(opening));
+});
+video.addEventListener("loadstart", () => playerMediaState("loading", "Loading clip…"));
+video.addEventListener("canplay", () => playerMediaState("ready"));
+video.addEventListener("playing", () => playerMediaState("ready"));
+video.addEventListener("error", () => {
+  if (!overlay.classList.contains("hidden") && video.error) {
+    playerMediaState("error", "Unable to play this clip", "Try again, or open the original file from More → Open folder.", true);
+  }
+});
+$("pv-retry").addEventListener("click", () => {
+  if (!video.src) return;
+  if (video.error) video.load();
+  video.play().catch(handlePlayerPlayFailure);
+});
+for (const key of ["recording", "audio", "capture", "general"]) {
+  const tab = $("set-nav-" + key);
+  tab.addEventListener("click", () => selectSettingsPage(key));
+  tab.addEventListener("keydown", (event) => {
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const keys = ["recording", "audio", "capture", "general"];
+    const i = keys.indexOf(key);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? keys.length - 1 :
+      event.key === "ArrowUp" ? (i + keys.length - 1) % keys.length : (i + 1) % keys.length;
+    selectSettingsPage(keys[next], true);
+  });
+}
+$("e-inspector-toggle").addEventListener("click", () => {
+  setInspectorOpen($("e-inspector-toggle").getAttribute("aria-expanded") !== "true", true);
+});
+window.matchMedia("(max-width: 800px)").addEventListener("change", (event) => setInspectorOpen(!event.matches));
 
 if (window.chrome && window.chrome.webview && window.chrome.webview.addEventListener) {
   window.chrome.webview.addEventListener("message", (e) => window.__onNative(e.data));
@@ -368,6 +821,8 @@ let eDur = 0;
 let eIn = 0;
 let eOut = 0;
 let eTracks = [];
+let eShowMixedTracks = false;
+const editorRemoveIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg>';
 let eDrag = null;
 // Multi-segment project (single source, cuts only). eIn/eOut always mirror
 // the SELECTED segment; render posts every segment in order.
@@ -382,7 +837,6 @@ let eFresh = true;
 let eSources = [];
 let eVideoSrcId = null;
 let eAudioReady = false;
-let eReturnFocus = null;
 
 function eSetSaveState(text, state) {
   const el = $("e-save-state");
@@ -875,8 +1329,8 @@ function redrawTrackWaves() {
   const { starts, total } = eRipple();
   const srcDur0 = eSrcDur(0);
   const rows = $("e-tracks").querySelectorAll(".track-row");
-  rows.forEach((row, i) => {
-    const t = eTracks[i];
+  rows.forEach((row) => {
+    const t = eTracks[Number(row.dataset.trackIndex)];
     const canvas = row.querySelector("canvas.wave");
     if (!t || !canvas) return;
     const ctx = canvas.getContext("2d");
@@ -910,9 +1364,22 @@ function redrawTrackWaves() {
     }
   });
 }
-function renderEditTracks() {
+function renderEditTracks(restoreFocus = null) {
   const wrap = $("e-tracks");
   const summary = $("e-audio-summary");
+  const scrollPane = wrap.closest(".tracks-wrap");
+  const scrollTop = scrollPane.scrollTop;
+  const active = document.activeElement;
+  if (!restoreFocus && wrap.contains(active)) {
+    const row = active.closest(".track-row");
+    if (active.id === "e-mixed-toggle") restoreFocus = { mixed: true };
+    else if (row) {
+      const control = active.matches("[data-solo]") ? "solo" :
+        active.matches("[data-mute]") ? "mute" :
+        active.matches("input.vol") ? "volume" : active.matches("canvas.wave") ? "wave" : null;
+      if (control) restoreFocus = { index: Number(row.dataset.trackIndex), control };
+    }
+  }
   if (!eTracks.length) {
     wrap.innerHTML = `<div class="audio-state${eAudioReady ? "" : " loading"}">` +
       (eAudioReady
@@ -931,10 +1398,31 @@ function renderEditTracks() {
       : `${editable} editable layer${editable === 1 ? "" : "s"}`;
   }
   wrap.innerHTML = "";
-  eTracks.forEach((t, i) => {
+  // Reorder the presentation only; saved projects and native audio retain their indices.
+  const indexed = eTracks.map((track, index) => ({ track, index }));
+  const editable = indexed.filter(({ track }) => track.removable);
+  const mixed = indexed.filter(({ track }) => !track.removable);
+  let mixedSection = null;
+  let mixedBody = null;
+  if (mixed.length) {
+    mixedSection = document.createElement("section");
+    mixedSection.className = "mixed-audio";
+    mixedSection.innerHTML =
+      `<button id="e-mixed-toggle" class="mixed-audio-toggle" type="button" aria-expanded="${eShowMixedTracks}" aria-controls="e-mixed-tracks"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><span>${mixed.length} layer${mixed.length === 1 ? "" : "s"} mixed into source</span></button>` +
+      `<div id="e-mixed-tracks" class="${eShowMixedTracks ? "" : "hidden"}" role="group" aria-label="Audio mixed into source"><p class="mixed-audio-note">These sounds are already in the recording and cannot be adjusted separately.</p></div>`;
+    mixedBody = mixedSection.querySelector("#e-mixed-tracks");
+    mixedBody.inert = !eShowMixedTracks;
+    mixedSection.querySelector("button").addEventListener("click", () => {
+      eShowMixedTracks = !eShowMixedTracks;
+      renderEditTracks({ mixed: true });
+    });
+  }
+  const visible = [...editable, ...(eShowMixedTracks ? mixed : [])];
+  visible.forEach(({ track: t, index: i }) => {
     if (t.gain === undefined) t.gain = 1;
     const excluded = eIsExcluded(t);
     const row = document.createElement("div");
+    row.dataset.trackIndex = String(i);
     row.className = "track-row" + (excluded ? " muted" : "") +
       (soloActive ? " solo-active" : "");
     const trackName = t.exe || ("pid " + t.pid);
@@ -967,12 +1455,12 @@ function renderEditTracks() {
     };
     row.querySelector("[data-mute]").addEventListener("click", () => {
       t.keep = !t.keep;
-      renderEditTracks();
+      renderEditTracks({ index: i, control: "mute" });
       ePushHist();
     });
     row.querySelector("[data-solo]").addEventListener("click", () => {
       t.solo = !t.solo;
-      renderEditTracks();
+      renderEditTracks({ index: i, control: "solo" });
       ePushHist();
     });
     const slider = row.querySelector("input.vol");
@@ -1003,9 +1491,17 @@ function renderEditTracks() {
       else next += ev.key === "ArrowLeft" ? -(ev.shiftKey ? 1 : 0.1) : (ev.shiftKey ? 1 : 0.1);
       ensureVideoSrc(eSel, Math.min(c.e, Math.max(c.s, next)));
     });
-    wrap.appendChild(row);
+    (t.removable ? wrap : mixedBody).appendChild(row);
   });
+  if (mixedSection) wrap.appendChild(mixedSection);
   redrawTrackWaves();
+  scrollPane.scrollTop = scrollTop;
+  if (restoreFocus) {
+    const row = wrap.querySelector(`[data-track-index="${restoreFocus.index}"]`);
+    const selector = { solo: "[data-solo]", mute: "[data-mute]", volume: "input.vol", wave: "canvas.wave" }[restoreFocus.control];
+    const target = restoreFocus.mixed ? $("e-mixed-toggle") : row && selector ? row.querySelector(selector) : null;
+    if (target && !target.disabled) focusVisible(target);
+  }
 }
 function eUpdateTrackPlayhead() {
   const ph = $("e-track-ph");
@@ -1068,7 +1564,9 @@ function renderTextPreview() {
 function openEditor() {
   const c = clips.find((x) => x.id === editId);
   if (!c) return;
-  eReturnFocus = document.activeElement;
+  video.pause();
+  setInspectorOpen(window.innerWidth > 800);
+  selectInspectorPanel("video");
   if ($("e-clipname")) $("e-clipname").textContent = eClipLabel(editId) || c.id;
   editDurMs = c.dur_ms || 0;
   eDur = editDurMs / 1000;
@@ -1084,7 +1582,9 @@ function openEditor() {
   eHistIx = -1;
   eFresh = true;
   eTracks = [];
+  eShowMixedTracks = false;
   eAudioReady = false;
+  clearEditorMediaNotice();
   $("e-film").innerHTML = '<div class="filmstrip-state">Loading preview frames...</div>';
   $("e-tracks").innerHTML = '<div class="audio-state loading">Loading audio layers...</div>';
   if ($("e-audio-summary")) $("e-audio-summary").textContent = "Checking recorded audio layers...";
@@ -1117,20 +1617,16 @@ function openEditor() {
   $("e-progress-wrap").classList.add("hidden");
   $("e-progress-bar").style.transform = "scaleX(0)";
   $("e-render-summary").textContent = "Save creates a new clip. Your original stays intact.";
-  overlay.classList.add("hidden");   // close player behind
-  editOv.classList.remove("hidden");
+  showDialog(editOv, $("e-play"), overlay);
   eUpdateEditorChrome();
-  setTimeout(() => { if (!editOv.classList.contains("hidden")) $("e-play").focus(); }, 0);
 }
 function closeEditor(flush = true) {
   try { $("e-video").pause(); } catch (e) {}
   if (flush) eFlushAutosave();
   else clearTimeout(eSaveTimer);
   setBlurMode(false);
-  editOv.classList.add("hidden");
+  hideDialog(editOv);
   eDrag = null;
-  if (eReturnFocus && typeof eReturnFocus.focus === "function") eReturnFocus.focus();
-  eReturnFocus = null;
 }
 
 /* ---------------- Video overlay (blur boxes on the picture) ---------------- */
@@ -1161,6 +1657,7 @@ if (window.ResizeObserver) {
 let eBlurMode = false;
 function setBlurMode(on) {
   eBlurMode = !!on;
+  if (eBlurMode) selectInspectorPanel("video");
   const btn = $("e-blur-mode"), ov = $("e-preview");
   if (btn) {
     btn.setAttribute("aria-pressed", eBlurMode ? "true" : "false");
@@ -1192,18 +1689,54 @@ function eUpdateClock() {
     eClock(Math.max(0, end - start));
   renderTextPreview();
 }
-$("e-play").addEventListener("click", () => {
+function clearEditorMediaNotice() {
+  const notice = $("e-media-notice");
+  const hadFocus = notice.contains(document.activeElement);
+  notice.classList.add("hidden");
+  if (hadFocus) focusVisible($("e-play"));
+}
+function handleEditorPlayFailure(error) {
+  if (editOv.classList.contains("hidden") || error?.name === "AbortError") return;
+  $("e-media-detail").textContent = error?.name === "NotAllowedError"
+    ? "Playback paused. Choose Retry preview to start it."
+    : "Preview could not play. Retry, or close the editor and reopen the clip.";
+  $("e-media-notice").classList.remove("hidden");
+}
+function playEditorPreview() {
   const v = $("e-video");
   const c = eClips[eSel];
-  if (v.paused) {
+  try {
     if (c) {
       v.playbackRate = c.spd || 1;
-      if (v.currentTime < c.s || v.currentTime >= c.e) v.currentTime = c.s;
+      if (v.readyState >= 1 && (v.currentTime < c.s || v.currentTime >= c.e)) v.currentTime = c.s;
     }
-    v.play().catch(() => {});
+    v.play().catch(handleEditorPlayFailure);
+  } catch (error) {
+    handleEditorPlayFailure(error);
   }
+}
+$("e-play").addEventListener("click", () => {
+  const v = $("e-video");
+  if (v.paused) playEditorPreview();
   else v.pause();
 });
+$("e-media-retry").addEventListener("click", () => {
+  const v = $("e-video");
+  if (v.error) {
+    const sourceId = eVideoSrcId;
+    const wantedTime = v.currentTime;
+    v.addEventListener("loadedmetadata", () => {
+      if (editOv.classList.contains("hidden") || eVideoSrcId !== sourceId) return;
+      const c = eClips[eSel];
+      if (c) v.currentTime = Math.min(c.e, Math.max(c.s, wantedTime));
+    }, { once: true });
+    v.load();
+  }
+  playEditorPreview();
+});
+$("e-video").addEventListener("error", () => handleEditorPlayFailure($("e-video").error));
+$("e-video").addEventListener("loadstart", clearEditorMediaNotice);
+$("e-video").addEventListener("playing", clearEditorMediaNotice);
 $("e-video").addEventListener("play", () => {
   $("e-play").textContent = "Pause";
   $("e-play").setAttribute("aria-label", "Pause selected segment");
@@ -1393,7 +1926,7 @@ function renderEditRegions() {
     chip.setAttribute("aria-pressed", i === editSel ? "true" : "false");
     chip.setAttribute("aria-label", "Select blur box " + (i + 1));
     chip.innerHTML =
-      `<span>Box ${i + 1} - ${Math.round(r.x)},${Math.round(r.y)} · ${Math.round(r.w)}×${Math.round(r.h)}%</span><button title="Remove blur box" aria-label="Remove blur box ${i + 1}">&times;</button>`;
+      `<span>Box ${i + 1} - ${Math.round(r.x)},${Math.round(r.y)} · ${Math.round(r.w)}×${Math.round(r.h)}%</span><button title="Remove blur box" aria-label="Remove blur box ${i + 1}">${editorRemoveIcon}</button>`;
     chip.querySelector("button").addEventListener("click", (ev) => {
       ev.stopPropagation();
       editRegions.splice(i, 1); editSel = -1; renderEditRegions();
@@ -1405,6 +1938,7 @@ function renderEditRegions() {
       renderEditRegions();
     });
     chip.addEventListener("keydown", (ev) => {
+      if (ev.target.closest("button")) return;
       if (ev.key !== "Enter" && ev.key !== " ") return;
       ev.preventDefault();
       editSel = i;
@@ -1520,11 +2054,22 @@ function collectCrop(srcW, srcH) {
 const srcMenu = document.createElement("div");
 srcMenu.className = "popmenu hidden";
 srcMenu.id = "src-menu";
+srcMenu.tabIndex = -1;
+srcMenu.setAttribute("role", "group");
+srcMenu.setAttribute("aria-label", "Capture source");
 document.body.appendChild(srcMenu);
 const micPop = document.createElement("div");
 micPop.className = "popmenu hidden";
 micPop.id = "mic-pop";
+micPop.tabIndex = -1;
+micPop.setAttribute("role", "group");
+micPop.setAttribute("aria-label", "Microphones");
 document.body.appendChild(micPop);
+const menuFocusRequest = new Map();
+$("src-btn").setAttribute("aria-controls", srcMenu.id);
+$("mic-pick").setAttribute("aria-controls", micPop.id);
+$("src-btn").setAttribute("aria-expanded", "false");
+$("mic-pick").setAttribute("aria-expanded", "false");
 
 let displays = [];
 let activeDisp = 0;
@@ -1539,51 +2084,141 @@ function anchorMenu(menu, btn) {
   const r = btn.getBoundingClientRect();
   menu.style.visibility = "hidden";
   menu.classList.remove("hidden");
+  menu.style.minWidth = "";
+  menu.style.maxWidth = "";
+  const css = getComputedStyle(menu);
+  const availableWidth = Math.max(0, window.innerWidth - 16);
+  menu.style.maxWidth = Math.min(parseFloat(css.maxWidth) || availableWidth, availableWidth) + "px";
+  if ((parseFloat(css.minWidth) || 0) > availableWidth) menu.style.minWidth = availableWidth + "px";
+  const below = Math.max(0, window.innerHeight - r.bottom - 14);
+  const above = Math.max(0, r.top - 14);
+  menu.style.maxHeight = Math.max(below, above) + "px";
+  menu.style.overflowY = "auto";
   const mw = menu.offsetWidth;
-  let left = r.right - mw;
-  if (left < 8) left = 8;
+  const mh = menu.offsetHeight;
+  const left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8));
+  const desiredTop = mh > below && above > below ? r.top - mh - 6 : r.bottom + 6;
   menu.style.left = left + "px";
-  menu.style.top = (r.bottom + 6) + "px";
+  menu.style.top = Math.max(8, Math.min(desiredTop, window.innerHeight - mh - 8)) + "px";
   menu.style.visibility = "visible";
+  btn.setAttribute("aria-expanded", "true");
 }
-function closeMenus() {
+function closeMenus(restoreFocus = false) {
+  const open = !micPop.classList.contains("hidden") ? micPop :
+    (!srcMenu.classList.contains("hidden") ? srcMenu :
+      (!$("pv-more-menu").classList.contains("hidden") ? $("pv-more-menu") : null));
+  $("pv-more-menu").classList.add("hidden");
+  $("pv-more").setAttribute("aria-expanded", "false");
   srcMenu.classList.add("hidden");
   if (!micPop.classList.contains("hidden")) {
     micPop.classList.add("hidden");
     post({ cmd: "mic_preview_off" });
   }
+  $("src-btn").setAttribute("aria-expanded", "false");
+  $("mic-pick").setAttribute("aria-expanded", "false");
+  menuFocusRequest.clear();
+  if (restoreFocus && open) focusVisible($(open === srcMenu ? "src-btn" : open === micPop ? "mic-pick" : "pv-more"));
 }
+
+function rememberMenuFocus(menu) {
+  const active = document.activeElement;
+  return { inside: menu.contains(active), data: active.dataset ? { ...active.dataset } : {} };
+}
+
+function focusMenuItem(menu, direction, remembered) {
+  const items = [...menu.querySelectorAll("button.mi")];
+  const same = remembered && items.find((item) =>
+    Object.entries(remembered).some(([key, value]) => item.dataset[key] === value));
+  const target = same || (direction === "last" ? items[items.length - 1] :
+    (direction === "first" ? items[0] : items.find((item) => item.getAttribute("aria-pressed") === "true") || items[0]));
+  if (target) target.focus({ preventScroll: true });
+  else menu.focus({ preventScroll: true });
+}
+
+function finishMenuRender(menu, trigger, remembered) {
+  if (menu.classList.contains("hidden")) return;
+  anchorMenu(menu, trigger);
+  if (remembered.inside || menuFocusRequest.has(menu)) {
+    focusMenuItem(menu, menuFocusRequest.get(menu) || "selected", remembered.data);
+    menuFocusRequest.delete(menu);
+  }
+}
+
+function bindMenuKeyboard(menu, trigger) {
+  trigger.addEventListener("keydown", (event) => {
+    if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+    event.preventDefault();
+    const direction = event.key === "ArrowUp" ? "last" : "first";
+    if (menu.classList.contains("hidden")) {
+      trigger.click();
+      menuFocusRequest.set(menu, direction);
+    }
+    focusMenuItem(menu, direction);
+  });
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenus(true);
+    } else if (event.key === "Tab") {
+      closeMenus(true);
+    } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const items = [...menu.querySelectorAll("button.mi")];
+      if (!items.length) return;
+      const index = items.indexOf(document.activeElement);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 :
+        event.key === "ArrowDown" ? (index + 1) % items.length : (index <= 0 ? items.length - 1 : index - 1);
+      items[next].focus();
+    }
+  });
+}
+bindMenuKeyboard(srcMenu, $("src-btn"));
+bindMenuKeyboard(micPop, $("mic-pick"));
+bindMenuKeyboard($("pv-more-menu"), $("pv-more"));
+window.addEventListener("resize", () => {
+  if (!srcMenu.classList.contains("hidden")) anchorMenu(srcMenu, $("src-btn"));
+  if (!micPop.classList.contains("hidden")) anchorMenu(micPop, $("mic-pick"));
+});
 document.addEventListener("click", (e) => {
-  if (!e.target.closest("#src-btn") && !e.target.closest("#src-menu") &&
-      !e.target.closest(".mic-wrap") && !e.target.closest("#mic-pop")) closeMenus();
+  const path = e.composedPath();
+  if (!e.target.closest("#src-btn") && !path.includes(srcMenu) &&
+      !e.target.closest(".mic-wrap") && !path.includes(micPop) &&
+      !e.target.closest(".player-more-wrap")) closeMenus();
 });
 
 $("src-btn").addEventListener("click", () => {
-  if (!srcMenu.classList.contains("hidden")) return closeMenus();
+  if (!srcMenu.classList.contains("hidden")) return closeMenus(true);
   closeMenus();
   post({ cmd: "list_sources" });
   srcMenu.innerHTML = '<div class="empty">Loading…</div>';
   anchorMenu(srcMenu, $("src-btn"));
+  srcMenu.focus({ preventScroll: true });
 });
-post({ cmd: "list_sources" });
 $("aud-pc").classList.toggle("on", true);
+$("aud-pc").setAttribute("aria-pressed", String(pcOn));
+$("aud-mic").setAttribute("aria-pressed", String(micOn));
 $("aud-pc").addEventListener("click", () => {
   pcOn = !pcOn;
   $("aud-pc").classList.toggle("on", pcOn);
+  $("aud-pc").setAttribute("aria-pressed", String(pcOn));
   post({ cmd: "set_audio", desktop: pcOn, mic: micOn });
 });
 $("aud-mic").addEventListener("click", () => {
   micOn = !micOn;
   $("aud-mic").classList.toggle("on", micOn);
+  $("aud-mic").setAttribute("aria-pressed", String(micOn));
   post({ cmd: "set_audio", desktop: pcOn, mic: micOn });
 });
 $("mic-pick").addEventListener("click", () => {
-  if (!micPop.classList.contains("hidden")) return closeMenus();
+  if (!micPop.classList.contains("hidden")) return closeMenus(true);
   closeMenus();
   post({ cmd: "list_mics" });
   post({ cmd: "mic_preview_on" });
   micPop.innerHTML = '<div class="empty">Loading devices…</div>';
   anchorMenu(micPop, $("mic-pick"));
+  micPop.focus({ preventScroll: true });
 });
 
 function shortTitle(t) {
@@ -1591,44 +2226,47 @@ function shortTitle(t) {
   return t.length > 26 ? t.slice(0, 25) + "…" : t;
 }
 function renderSrcMenu() {
+  const remembered = rememberMenuFocus(srcMenu);
   const dispRows = displays.map((d) => `
-        <div class="mi sub ${srcMode === "display" && d.i === activeDisp ? "active" : ""}" data-disp="${d.i}">
-          <span>${esc(d.label)}</span>${srcMode === "display" && d.i === activeDisp ? "<span>✓</span>" : ""}
-        </div>`).join("");
+        <button type="button" class="mi sub ${srcMode === "display" && d.i === activeDisp ? "active" : ""}" data-disp="${d.i}" aria-pressed="${srcMode === "display" && d.i === activeDisp}">
+          <span>${esc(d.label)}</span>${srcMode === "display" && d.i === activeDisp ? '<span aria-hidden="true">✓</span>' : ""}
+        </button>`).join("");
   const winRows = srcWindows.length ? srcWindows.map((w, i) => {
     const sel = srcMode === "window" && w.exe === srcWinExe &&
       (!srcWinTitle || w.title === srcWinTitle);
     return `
-        <div class="mi ${sel ? "active" : ""}" data-win="${i}">
+        <button type="button" class="mi ${sel ? "active" : ""}" data-win="${i}" aria-pressed="${sel}" title="${esc(w.title || w.exe)}">
           <span class="col"><span>${esc(shortTitle(w.title))}</span>` +
-          `<span class="sub2">${esc(w.exe)}</span></span>${sel ? "<span>✓</span>" : ""}
-        </div>`;
+          `<span class="sub2">${esc(w.exe)}</span></span>${sel ? '<span aria-hidden="true">✓</span>' : ""}
+        </button>`;
   }).join("") : '<div class="empty">No windows available.</div>';
   srcMenu.innerHTML =
-    `<div class="mi ${srcMode === "display" ? "active" : ""}" data-mode="display">
-       <span>Entire desktop</span>${srcMode === "display" ? "<span>✓</span>" : ""}
-     </div>` + dispRows +
+    `<button type="button" class="mi ${srcMode === "display" ? "active" : ""}" data-mode="display" aria-pressed="${srcMode === "display"}">
+       <span>Entire desktop</span>${srcMode === "display" ? '<span aria-hidden="true">✓</span>' : ""}
+     </button>` + dispRows +
     `<div class="mhead">Window</div>` + winRows;
   srcMenu.querySelectorAll("[data-mode]").forEach((el) =>
     el.addEventListener("click", () => {
       post({ cmd: "set_source", mode: "display", display: activeDisp });
-      closeMenus();
+      closeMenus(true);
     }));
   srcMenu.querySelectorAll("[data-disp]").forEach((el) =>
     el.addEventListener("click", () => {
       activeDisp = parseInt(el.dataset.disp, 10) || 0;
       post({ cmd: "set_source", mode: "display", display: activeDisp });
-      closeMenus();
+      closeMenus(true);
     }));
   srcMenu.querySelectorAll("[data-win]").forEach((el) =>
     el.addEventListener("click", () => {
       const w = srcWindows[parseInt(el.dataset.win, 10)];
       if (!w) return;
       post({ cmd: "set_source", mode: "window", exe: w.exe, title: w.title });
-      closeMenus();
+      closeMenus(true);
     }));
+  finishMenuRender(srcMenu, $("src-btn"), remembered);
 }
 function updateSrcLabel() {
+  updateCaptureSummary();
   if (srcMode === "window" && (srcWinTitle || srcWinExe)) {
     $("src-label").textContent = shortTitle(srcWinTitle || srcWinExe);
     return;
@@ -1638,22 +2276,24 @@ function updateSrcLabel() {
 }
 
 function renderMics() {
+  const remembered = rememberMenuFocus(micPop);
   micPop.innerHTML = micList.length
     ? `<div class="empty" style="padding-bottom:4px">Speak to see levels · click to pick</div>` +
       micList.map((m) => `
-        <div class="mi">
-          <div class="microw ${m.id === activeMicId ? "sel" : ""}" data-id="${esc(m.id)}">
+        <button type="button" class="mi ${m.id === activeMicId ? "active" : ""}" data-id="${esc(m.id)}" aria-pressed="${m.id === activeMicId}" title="${esc(m.name || m.id)}">
+          <span class="microw ${m.id === activeMicId ? "sel" : ""}" data-id="${esc(m.id)}">
             <span class="name">${esc(m.name || m.id)}</span>
-            <span class="meter"><i data-id="${esc(m.id)}"></i></span>
-          </div>
-        </div>`).join("")
+            <span class="meter" aria-hidden="true"><i data-id="${esc(m.id)}"></i></span>
+          </span>
+        </button>`).join("")
     : '<div class="empty">No microphones found.</div>';
-  [...micPop.querySelectorAll(".microw")].forEach((el) =>
+  [...micPop.querySelectorAll("button[data-id]")].forEach((el) =>
     el.addEventListener("click", () => {
       activeMicId = el.dataset.id;
       post({ cmd: "set_mic", id: activeMicId });
       renderMics();
     }));
+  finishMenuRender(micPop, $("mic-pick"), remembered);
 }
 const hkField = $("s-hotkey");
 let hkListening = false;
@@ -1747,7 +2387,7 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault(); eRedo(); return;
   }
   if (mod) return;
-  if (e.key === " ") { e.preventDefault(); const v = $("e-video"); v.paused ? v.play().catch(() => {}) : v.pause(); }
+  if (e.key === " ") { e.preventDefault(); const v = $("e-video"); v.paused ? playEditorPreview() : v.pause(); }
   else if (e.key === "s" || e.key === "S") eSplitAtPlayhead();
   else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); eDeleteSel(); }
   else if (e.key === "ArrowLeft") eNudgePreview(-(e.shiftKey ? 1 / 30 : 5));
@@ -1827,7 +2467,7 @@ function renderTextList() {
     chip.setAttribute("aria-pressed", i === textSel ? "true" : "false");
     chip.setAttribute("aria-label", "Select text overlay " + (i + 1));
     chip.innerHTML =
-      `<span>${esc(t.content || "(empty)")} · ${eFmt(t.start)}–${eFmt(t.end)}</span><button title="Remove">✕</button>`;
+      `<span>${esc(t.content || "(empty)")} · ${eFmt(t.start)}–${eFmt(t.end)}</span><button title="Remove">${editorRemoveIcon}</button>`;
     chip.querySelector("button").setAttribute("aria-label", "Remove text overlay " + (i + 1));
     chip.querySelector("button").addEventListener("click", (ev) => {
       ev.stopPropagation();
@@ -1838,6 +2478,7 @@ function renderTextList() {
     });
     chip.addEventListener("click", () => { textSel = i; syncTextEditor(); });
     chip.addEventListener("keydown", (ev) => {
+      if (ev.target.closest("button")) return;
       if (ev.key !== "Enter" && ev.key !== " ") return;
       ev.preventDefault();
       textSel = i;
@@ -1878,7 +2519,7 @@ function syncTextEditor() {
       b.title = ["Top ", "", "Bottom "][py] + ["left", "center", "right"][px];
       b.setAttribute("aria-label", b.title + " text position");
       b.setAttribute("aria-pressed", "false");
-      b.textContent = ["↖", "↑", "↗", "←", "●", "→", "↙", "↓", "↘"][py * 3 + px];
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" opacity=".45"/><circle cx="${6 + px * 6}" cy="${6 + py * 6}" r="2" fill="currentColor" stroke="none"/></svg>`;
       b.addEventListener("click", () => {
         if (!editTexts[textSel]) return;
         editTexts[textSel].px = px;
@@ -1891,6 +2532,7 @@ function syncTextEditor() {
   }
 })();
 $("e-add-text").addEventListener("click", () => {
+  selectInspectorPanel("text");
   editTexts.push({
     content: "Title", size: "M", color: "#ffffff", font: "Segoe UI",
     px: 1, py: 2, align: "center",
@@ -1941,7 +2583,7 @@ function openAppAudio(id) {
 }
 
 function closeAppAudio() {
-  appAudioOv.classList.add("hidden");
+  hideDialog(appAudioOv);
   appAudioId = null;
 }
 
@@ -1954,12 +2596,11 @@ function renderAppAudio(id, apps) {
   } else {
     list.innerHTML = apps.map((a) => {
       const removable = !!a.removable;
-      return `<div class="set-row"><label title="${esc(removable ? "Uncheck to remove this app\u2019s sound" : "No separate track was recorded for this app")}">${esc(a.exe || ("pid " + a.pid))}${removable ? "" : " (mixed)"}</label>` +
-        `<input type="checkbox" data-pid="${a.pid}" ${removable ? "checked" : "checked disabled"}></div>`;
+      return `<div class="set-row"><label for="appaudio-app-${a.pid}" title="${esc(removable ? "Uncheck to remove this app\u2019s sound" : "No separate track was recorded for this app")}">${esc(a.exe || ("pid " + a.pid))}${removable ? "" : " (mixed)"}</label>` +
+        `<input id="appaudio-app-${a.pid}" type="checkbox" data-pid="${a.pid}" ${removable ? "checked" : "checked disabled"}></div>`;
     }).join("");
   }
-  overlay.classList.add("hidden");   // close player behind
-  appAudioOv.classList.remove("hidden");
+  showDialog(appAudioOv, list.querySelector("input:not(:disabled)") || $("appaudio-close"), overlay);
 }
 
 /* ---------------- Interactive trim ---------------- */
@@ -2008,15 +2649,14 @@ function openTrim(id) {
   trimOut = trimDur;
   trimVideo.src = video.src;
   syncTrimUI();
-  overlay.classList.add("hidden");
-  trimOv.classList.remove("hidden");
+  showDialog(trimOv, $("t-start"), overlay);
   trimVideo.play().catch(() => {});
 }
 function closeTrim() {
   try { trimVideo.pause(); } catch (e) {}
   trimVideo.removeAttribute("src");
   try { trimVideo.load(); } catch (e) {}
-  trimOv.classList.add("hidden");
+  hideDialog(trimOv);
   trimId = null;
   trimDrag = null;
 }
@@ -2106,4 +2746,10 @@ $("appaudio-render").addEventListener("click", () => {
 });
 $("edit-close").addEventListener("click", closeEditor);
 
+showAppView("library");
+setLibraryView("grid");
+selectInspectorPanel("video");
+updateCaptureSummary();
 post({ cmd: "ready" });
+post({ cmd: "get_settings" });
+post({ cmd: "list_sources" });
