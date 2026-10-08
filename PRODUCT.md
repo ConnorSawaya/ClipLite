@@ -13,21 +13,19 @@ the interface technology, not a hosted website.
 ## Product Purpose
 
 Keep a rolling screen and audio replay buffer, save recent footage on demand,
-and edit saved clips without changing the originals. These capabilities are
-documented in README.md and implemented by the existing native message bridge.
+and make saved clips easy to find and play. These capabilities are documented
+in README.md and implemented by the native message bridge.
 
 ## Operating Context
 
 Windows 10/11 on an unlocked desktop. ClipLite runs in the system tray and exposes
-a local clip library, video player, editor, recording settings, capture source
-picker, and microphone picker. Recordings and editor sidecars stay on disk.
+a local clip library and video player, recording settings, capture source picker,
+and microphone picker. Recordings and audio metadata stay on disk.
 
 ## Capabilities and Constraints
 
 - Save recent footage with Clip Now or the configured global hotkey.
 - Search and play the local library; rename, copy, reveal, or delete clips.
-- Trim, split, reorder, change speed, crop, blur, add text, mix audio layers, and
-  export a new clip using the existing editor.
 - Preserve the `window.chrome.webview.postMessage` / `window.__onNative` contract.
 - Use local assets and Windows system fonts; no network dependency for the UI.
 - Visual work must keep media preview geometry and recording behavior intact.
@@ -35,13 +33,13 @@ picker, and microphone picker. Recordings and editor sidecars stay on disk.
 ## Brand Commitments
 
 The user requested a liquid glass redesign across the desktop interface and an
-updated PC installation and GitHub source. The name ClipLite and its existing
-recording and editing capabilities remain the product identity.
+updated PC installation and GitHub source. The name ClipLite and its focus on recording and playback remain the product
+identity.
 
 On October 8, 2026, the user rejected the oversized blue frosted panels as generic
 and explicitly chose **Apple-style clear liquid glass**. Navigation and control
-chrome should transmit the content underneath, while recordings and editing
-surfaces stay visually quiet. This is a confirmed appearance preference.
+chrome should transmit the content underneath, while recordings stay visually
+quiet. This is a confirmed appearance preference.
 
 ## Evidence on Hand
 

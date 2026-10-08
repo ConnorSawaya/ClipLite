@@ -3,7 +3,7 @@
 ## Product direction
 
 The interface uses Apple-style clear liquid glass, as requested by the user. The
-glass sits on a quiet charcoal workspace, so real clips and editing controls
+glass sits on a quiet charcoal workspace, so real clips and recording controls
 remain easy to read. Translucency is reserved for the command bar, menus, and
 status controls that benefit from depth.
 
@@ -38,10 +38,8 @@ corner radius; small controls use compact 7–10px radii. Spacing follows small
 
 - A transmitting command bar anchors the Library and Capture workspaces.
 - The library keeps the app/game rail narrow and the recordings prominent.
-- Capture, playback, settings, and editing use the same graphite surfaces and
-  compact control language.
-- The editor places its tools in a dedicated panel. At compact sizes, opening
-  Tools moves the preview and timeline into their own column.
+- Capture, playback, and settings use the same graphite surfaces and compact
+  control language. The player keeps clip actions close to the video.
 - Media remains the content plane; borders and light do the work of separating
   nearby controls.
 
