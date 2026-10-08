@@ -16,7 +16,6 @@ let pcOn = true;
 let micOn = true;
 let clipHotkey = "F8";
 let appView = "library";
-let selectedGame = "";
 let libraryView = "grid";
 let captureStatus = null;
 let captureSettings = null;
@@ -152,45 +151,8 @@ function fmtSize(bytes) {
   return mb >= 100 ? Math.round(mb) + " MB" : mb.toFixed(1) + " MB";
 }
 
-function clipGame(clip) {
-  return typeof clip.game === "string" ? clip.game.trim() : "";
-}
-
 function clipTitle(clip) {
   return clip.game || clip.file || clip.id || "Clip";
-}
-
-function updateGameSelection() {
-  const filters = $("game-filters");
-  if (!filters) return;
-  filters.querySelectorAll("button[data-game]").forEach((button) => {
-    const selected = button.dataset.game === selectedGame;
-    button.setAttribute("aria-pressed", String(selected));
-    button.classList.toggle("active", selected);
-  });
-}
-
-function renderGameFilters() {
-  const filters = $("game-filters");
-  if (!filters) return;
-  const groups = new Map();
-  for (const clip of clips) {
-    const game = clipGame(clip);
-    if (game) groups.set(game, (groups.get(game) || 0) + 1);
-  }
-  if (selectedGame && !groups.has(selectedGame)) selectedGame = "";
-  const focused = filters.contains(document.activeElement) ? document.activeElement.dataset.game : null;
-  filters.innerHTML = [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }))
-    .map(([game, count]) => `<button type="button" class="game-filter" data-game="${esc(game)}" aria-pressed="${game === selectedGame}" aria-label="${esc(game + ", " + count + (count === 1 ? " clip" : " clips"))}" title="${esc(game)}"><span class="game-name">${esc(game)}</span><span class="game-count" aria-hidden="true">${count.toLocaleString()}</span></button>`)
-    .join("");
-  if (!groups.size) filters.innerHTML = '<span class="game-filter-empty">Game groups appear as clips are saved.</span>';
-  updateGameSelection();
-  if (focused) {
-    const replacement = [...filters.querySelectorAll("button[data-game]")]
-      .find((button) => button.dataset.game === focused);
-    if (!focusVisible(replacement)) focusVisible($("nav-library"));
-  }
 }
 
 function showAppView(view) {
@@ -314,7 +276,7 @@ function updateLibrarySummary(visible, filtered) {
 }
 
 function updateEmptyHotkey() {
-  if ($("search").value.trim() || selectedGame) return;
+  if ($("search").value.trim()) return;
   $("empty-sub").innerHTML = clipHotkey
     ? `Press <kbd>${esc(clipHotkey)}</kbd> in game to save your first replay.`
     : "Choose Clip Now to save your first replay.";
@@ -322,8 +284,8 @@ function updateEmptyHotkey() {
 
 function render() {
   const q = ($("search").value || "").trim().toLowerCase();
-  const visible = clips.filter((c) => (!selectedGame || clipGame(c) === selectedGame) &&
-    (!q || ((c.game || "") + " " + (c.file || c.id)).toLowerCase().includes(q)));
+  const visible = clips.filter((c) =>
+    !q || ((c.game || "") + " " + (c.file || c.id)).toLowerCase().includes(q));
   const sort = $("library-sort") ? $("library-sort").value : "newest";
   if (sort === "oldest") visible.reverse();
   else if (sort === "name") visible.sort((a, b) =>
@@ -348,18 +310,14 @@ function render() {
   if (focusedId && !focusVisible(clipCard(focusedId))) {
     focusAppFallback();
   }
-  updateLibrarySummary(visible, !!q || !!selectedGame);
+  updateLibrarySummary(visible, !!q);
 
   empty.classList.toggle("hidden", visible.length !== 0);
   empty.classList.toggle("show", visible.length === 0);
   if (visible.length === 0) {
     if (q) {
       $("empty-title").textContent = "No matches";
-      $("empty-sub").textContent = selectedGame
-        ? "Try a different search or choose Library." : "Try a different search.";
-    } else if (selectedGame) {
-      $("empty-title").textContent = "No clips for " + selectedGame;
-      $("empty-sub").textContent = "Choose Library to see the rest of your clips.";
+      $("empty-sub").textContent = "Try a different search.";
     } else {
       $("empty-title").textContent = "No clips yet";
       updateEmptyHotkey();
@@ -379,7 +337,6 @@ function handle(m) {
   switch (m.type) {
     case "clips":
       clips = m.clips || [];
-      renderGameFilters();
       render();
       break;
     case "status":
@@ -540,21 +497,8 @@ $("search").addEventListener("input", render);
 $("btn-clipnow").addEventListener("click", () => post({ cmd: "clip_now" }));
 $("btn-settings").addEventListener("click", openSettings);
 if ($("capture-settings")) $("capture-settings").addEventListener("click", openSettings);
-if ($("nav-library")) $("nav-library").addEventListener("click", () => {
-  selectedGame = "";
-  updateGameSelection();
-  showAppView("library");
-  render();
-});
+if ($("nav-library")) $("nav-library").addEventListener("click", () => showAppView("library"));
 if ($("nav-capture")) $("nav-capture").addEventListener("click", () => showAppView("capture"));
-if ($("game-filters")) $("game-filters").addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-game]");
-  if (!button) return;
-  selectedGame = button.dataset.game;
-  updateGameSelection();
-  showAppView("library");
-  render();
-});
 if ($("library-sort")) $("library-sort").addEventListener("change", render);
 if ($("view-grid")) $("view-grid").addEventListener("click", () => setLibraryView("grid"));
 if ($("view-list")) $("view-list").addEventListener("click", () => setLibraryView("list"));

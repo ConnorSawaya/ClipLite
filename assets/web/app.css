@@ -54,17 +54,7 @@ input[type="checkbox"], input[type="range"] { accent-color: var(--accent); }
 .rec-dot { width: 6px; height: 6px; border-radius: 50%; background: #d44756; }
 .icon-button, .ghost { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); }
 .icon-button:hover, .ghost:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
-.app-body { display: grid; grid-template-columns: 144px minmax(0, 1fr); height: 100%; }
-body[data-app-view="capture"] .app-body { grid-template-columns: minmax(0, 1fr); }
-body[data-app-view="capture"] .library-rail { display: none; }
-.library-rail { min-height: 0; overflow-y: auto; padding: 132px 10px 20px; border-right: 1px solid var(--line); }
-.library-rail h2 { margin: 0 8px 10px; color: var(--muted); font-size: 11px; font-weight: 500; }
-.game-filter { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 33px; padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; font-size: 11.5px; }
-.game-filter:hover { color: var(--text); background: rgba(255, 255, 255, .04); }
-.game-filter[aria-pressed="true"] { color: var(--text); background: rgba(255, 255, 255, .085); }
-.game-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.game-count { font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); }
-.game-filter-empty { display: block; padding: 0 8px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.app-body { display: grid; grid-template-columns: minmax(0, 1fr); height: 100%; }
 .workspace, .view-panel { min-width: 0; min-height: 0; height: 100%; }
 .view-panel { display: flex; flex-direction: column; position: relative; }
 .workspace-header { position: absolute; z-index: 5; inset: 76px 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 42px; padding: 0 20px; background: var(--bg); }
@@ -196,8 +186,6 @@ select option { background: var(--panel); color: var(--text); }
   .capture-config { padding-left: 24px; }
 }
 @media (max-width: 800px) {
-  .app-body { grid-template-columns: 120px minmax(0, 1fr); }
-  .library-rail { padding-inline: 7px; }
   .workspace-header { padding-inline: 16px; }
   #grid-wrap { padding-inline: 16px; }
   .searchwrap { width: 150px; }
@@ -213,14 +201,10 @@ select option { background: var(--panel); color: var(--text); }
   .commandbar-actions { gap: 8px; }
   .workspace-nav button { padding-inline: 12px; }
   .clipnow kbd { display: none; }
-  .app-body { grid-template-columns: 105px minmax(0, 1fr); }
   .workspace-header { top: 73px; height: 77px; flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; }
   .library-controls { width: 100%; }
   .searchwrap { flex: 1; width: auto; }
   #grid-wrap { padding-top: 164px; }
-  .library-rail { padding-top: 167px; }
-  .library-rail h2 { margin-inline: 4px; font-size: 10px; }
-  .game-filter { padding-inline: 5px; font-size: 10.5px; }
   .capture-content { padding-top: 164px; }
   .settings-grid { grid-template-columns: 126px minmax(0, 1fr); }
   .settings-nav { padding-inline: 9px; }
@@ -235,9 +219,6 @@ select option { background: var(--panel); color: var(--text); }
   .brand span { display: none; }
   .commandbar { gap: 9px; }
   .workspace-nav button { padding-inline: 10px; }
-  .app-body { grid-template-columns: 92px minmax(0, 1fr); }
-  .library-rail { padding-inline: 4px; }
-  .game-count { font-size: 9px; }
   .sort-control select { max-width: 108px; font-size: 10px; }
   #grid { gap: 18px; }
   .settings-grid { grid-template-columns: 110px minmax(0, 1fr); }
@@ -263,6 +244,6 @@ select option { background: var(--panel); color: var(--text); }
   body, .glass, .popmenu, .card, .player-card, .workspace-header, .toast { color: CanvasText; background: Canvas; box-shadow: none; backdrop-filter: none; }
   .overlay { background: Canvas; backdrop-filter: none; }
   button, input, select, .searchwrap { border: 1px solid ButtonText; box-shadow: none; }
-  .workspace-nav button[aria-pressed="true"], .game-filter[aria-pressed="true"], .settings-nav button[aria-selected="true"], .view-switch button[aria-pressed="true"] { color: HighlightText; background: Highlight; }
+  .workspace-nav button[aria-pressed="true"], .settings-nav button[aria-selected="true"], .view-switch button[aria-pressed="true"] { color: HighlightText; background: Highlight; }
   :where(button, input, select, [tabindex]):focus-visible { outline-color: Highlight; }
 }

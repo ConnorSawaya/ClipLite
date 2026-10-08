@@ -37,7 +37,7 @@ corner radius; small controls use compact 7–10px radii. Spacing follows small
 ## Layout
 
 - A transmitting command bar anchors the Library and Capture workspaces.
-- The library keeps the app/game rail narrow and the recordings prominent.
+- The library puts recordings first, with search, sorting, and layout controls above.
 - Capture, playback, and settings use the same graphite surfaces and compact
   control language. The player keeps clip actions close to the video.
 - Media remains the content plane; borders and light do the work of separating

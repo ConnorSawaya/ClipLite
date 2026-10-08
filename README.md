@@ -67,7 +67,7 @@ cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Release -DCLIPLITE_ASAN=ON
 
 1. Launch `ClipLite.exe` — it sits in the tray and starts buffering.
 2. Press the hotkey (`F8` by default) or click **Clip Now** to save.
-3. Open **Library** to search or filter clips, then select one to play it. Use **More** for rename, copy, open-folder, and delete actions.
+3. Open **Library** to search or sort clips, then select one to play it. Use **More** for rename, copy, open-folder, and delete actions.
 
 ### Settings
 
