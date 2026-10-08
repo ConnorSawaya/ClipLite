@@ -26,18 +26,19 @@ constexpr UINT IDC_CANCEL = 309;
 constexpr UINT IDC_QUALITY = 310;
 
 const wchar_t* kClass = L"ClipLiteSettingsWindow";
-const COLORREF kBg = RGB(10, 10, 10);
-const COLORREF kInput = RGB(13, 13, 13);
-const COLORREF kLine = RGB(38, 38, 38);
-const COLORREF kText = RGB(240, 240, 240);
-const COLORREF kMuted = RGB(140, 140, 140);
-const COLORREF kDisabledText = RGB(90, 90, 90);
-const COLORREF kPrimary = RGB(245, 245, 245);
+const COLORREF kBg = RGB(20, 21, 24);
+const COLORREF kInput = RGB(30, 32, 37);
+const COLORREF kLine = RGB(70, 73, 81);
+const COLORREF kText = RGB(243, 244, 246);
+const COLORREF kMuted = RGB(184, 188, 197);
+const COLORREF kDisabledText = RGB(134, 139, 148);
+const COLORREF kPrimary = RGB(233, 236, 241);
 const COLORREF kPrimaryHot = RGB(255, 255, 255);
-const COLORREF kPrimaryPressed = RGB(210, 210, 210);
-const COLORREF kSecondary = RGB(22, 22, 22);
-const COLORREF kSecondaryHot = RGB(32, 32, 32);
-const COLORREF kSecondaryPressed = RGB(12, 12, 12);
+const COLORREF kPrimaryPressed = RGB(205, 210, 220);
+const COLORREF kPrimaryInk = RGB(20, 21, 24);
+const COLORREF kSecondary = RGB(30, 32, 37);
+const COLORREF kSecondaryHot = RGB(44, 46, 53);
+const COLORREF kSecondaryPressed = RGB(22, 24, 28);
 
 int get_int(HWND edit) {
     wchar_t buf[32]{};
@@ -118,7 +119,7 @@ bool SettingsWindow::create(HINSTANCE hInstance, cliplite::Settings* settings,
     secondary_brush_ = CreateSolidBrush(kSecondary);
     secondary_hot_brush_ = CreateSolidBrush(kSecondaryHot);
     secondary_pressed_brush_ = CreateSolidBrush(kSecondaryPressed);
-    disabled_brush_ = CreateSolidBrush(RGB(24, 24, 24));
+    disabled_brush_ = CreateSolidBrush(kSecondaryPressed);
     border_pen_ = CreatePen(PS_SOLID, 1, kLine);
     body_font_ = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                              OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
@@ -144,8 +145,13 @@ bool SettingsWindow::create(HINSTANCE hInstance, cliplite::Settings* settings,
     if (!hwnd_) return false;
 
     const BOOL dark = TRUE;
+    const DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_ROUND;
+    // These attributes are optional; unsupported Windows versions keep system chrome.
     DwmSetWindowAttribute(hwnd_, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
     DwmSetWindowAttribute(hwnd_, DWMWA_CAPTION_COLOR, &kBg, sizeof(kBg));
+    DwmSetWindowAttribute(hwnd_, DWMWA_TEXT_COLOR, &kText, sizeof(kText));
+    DwmSetWindowAttribute(hwnd_, DWMWA_BORDER_COLOR, &kLine, sizeof(kLine));
+    DwmSetWindowAttribute(hwnd_, DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof(corners));
 
     create_controls(hwnd_);
     load_controls();
@@ -170,6 +176,8 @@ void SettingsWindow::create_controls(HWND parent) {
         HWND c = CreateWindowExW(0, L"BUTTON", text,
                                  WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, x, y, 220,
                                  20, parent, (HMENU)(INT_PTR)id, hinst_, nullptr);
+        // Let WM_CTLCOLORBTN supply readable labels on the dark fallback surface.
+        SetWindowTheme(c, L"", L"");
         SendMessageW(c, WM_SETFONT, reinterpret_cast<WPARAM>(body_font_), TRUE);
         return c;
     };
@@ -179,11 +187,11 @@ void SettingsWindow::create_controls(HWND parent) {
     constexpr int kFieldW = 150;
 
     label(L"Replay length (seconds)", kLabelX, 50, 180);
-    edit(IDC_REPLAY, kFieldX, 48, kFieldW, true);
+    edit_replay_ = edit(IDC_REPLAY, kFieldX, 48, kFieldW, true);
     label(L"FPS", kLabelX, 80, 180);
-    edit(IDC_FPS, kFieldX, 78, kFieldW, true);
+    edit_fps_ = edit(IDC_FPS, kFieldX, 78, kFieldW, true);
     label(L"Bitrate (Mbps)", kLabelX, 110, 180);
-    edit(IDC_BITRATE, kFieldX, 108, kFieldW, true);
+    edit_bitrate_ = edit(IDC_BITRATE, kFieldX, 108, kFieldW, true);
     label(L"Quality preset", kLabelX, 140, 180);
     combo_quality_ = CreateWindowExW(0, L"COMBOBOX", L"",
                                      WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_TABSTOP,
@@ -195,13 +203,13 @@ void SettingsWindow::create_controls(HWND parent) {
         SendMessageW(combo_quality_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item));
     }
 
-    check(L"Desktop audio", IDC_DESKTOP, kLabelX, 216);
-    check(L"Microphone", IDC_MIC, kLabelX, 246);
+    chk_desktop_ = check(L"Desktop audio", IDC_DESKTOP, kLabelX, 216);
+    chk_mic_ = check(L"Microphone", IDC_MIC, kLabelX, 246);
 
     label(L"Save clip hotkey", kLabelX, 322, 180);
-    edit(IDC_HOTKEY, kFieldX, 320, kFieldW, false);
-    check(L"Start with Windows", IDC_STARTUP, kLabelX, 354);
-    check(L"Notifications", IDC_NOTIFY, kLabelX, 384);
+    edit_hotkey_ = edit(IDC_HOTKEY, kFieldX, 320, kFieldW, false);
+    chk_startup_ = check(L"Start with Windows", IDC_STARTUP, kLabelX, 354);
+    chk_notify_ = check(L"Notifications", IDC_NOTIFY, kLabelX, 384);
 
     btn_save_ = CreateWindowExW(0, L"BUTTON", L"Save",
                                 WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | WS_TABSTOP, 20, 424, 110,
@@ -210,6 +218,7 @@ void SettingsWindow::create_controls(HWND parent) {
                                   WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | WS_TABSTOP, 140, 424, 110,
                                   34, parent, (HMENU)(INT_PTR)IDC_CANCEL, hinst_, nullptr);
     for (HWND b : {btn_save_, btn_cancel_}) {
+        SendMessageW(b, WM_SETFONT, reinterpret_cast<WPARAM>(body_font_), TRUE);
         SetWindowSubclass(b, ButtonProc, 0, reinterpret_cast<DWORD_PTR>(this));
     }
 }
@@ -328,15 +337,29 @@ void SettingsWindow::draw_button(const DRAWITEMSTRUCT& item) {
 
     HGDIOBJ old_brush = SelectObject(item.hDC, fill);
     HGDIOBJ old_pen = SelectObject(item.hDC, primary ? GetStockObject(NULL_PEN) : border_pen_);
-    RoundRect(item.hDC, rc.left, rc.top, rc.right, rc.bottom, 12, 12);
+    RoundRect(item.hDC, rc.left, rc.top, rc.right, rc.bottom, 16, 16);
     SelectObject(item.hDC, old_pen);
     SelectObject(item.hDC, old_brush);
 
+    if ((item.itemState & ODS_FOCUS) && !(item.itemState & ODS_NOFOCUSRECT)) {
+        RECT focus = rc;
+        InflateRect(&focus, -4, -4);
+        const COLORREF previous_color = SetDCPenColor(item.hDC, primary ? kPrimaryInk : kPrimary);
+        old_pen = SelectObject(item.hDC, GetStockObject(DC_PEN));
+        old_brush = SelectObject(item.hDC, GetStockObject(NULL_BRUSH));
+        RoundRect(item.hDC, focus.left, focus.top, focus.right, focus.bottom, 8, 8);
+        SelectObject(item.hDC, old_brush);
+        SelectObject(item.hDC, old_pen);
+        SetDCPenColor(item.hDC, previous_color);
+    }
+
     wchar_t text[64]{};
     GetWindowTextW(item.hwndItem, text, 64);
+    HGDIOBJ old_font = SelectObject(item.hDC, body_font_);
     SetBkMode(item.hDC, TRANSPARENT);
-    SetTextColor(item.hDC, disabled ? kDisabledText : (primary ? kBg : kText));
+    SetTextColor(item.hDC, disabled ? kDisabledText : (primary ? kPrimaryInk : kText));
     DrawTextW(item.hDC, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(item.hDC, old_font);
 }
 
 void SettingsWindow::on_paint() {
@@ -425,6 +448,7 @@ LRESULT CALLBACK SettingsWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
             SetBkColor(reinterpret_cast<HDC>(wp), kInput);
             return reinterpret_cast<LRESULT>(self->edit_brush_);
         case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN:
             SetTextColor(reinterpret_cast<HDC>(wp), kText);
             SetBkColor(reinterpret_cast<HDC>(wp), kBg);
             return reinterpret_cast<LRESULT>(self->bg_brush_);

@@ -90,6 +90,9 @@ add_executable(cliplite_app WIN32
     src/ui/settings_window.cpp
     assets/cliplite.rc
 )
+set_source_files_properties(assets/cliplite.rc PROPERTIES
+    OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/cliplite.ico"
+)
 set_target_properties(cliplite_app PROPERTIES OUTPUT_NAME "ClipLite")
 target_include_directories(cliplite_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include

@@ -26,3 +26,6 @@ dist/
 libtest_out.txt
 Thumbs.db
 .DS_Store
+
+# Private native UI captures may contain local recordings.
+.impeccable/review/

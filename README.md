@@ -1,6 +1,6 @@
 # ClipLite
 
-ClipLite is a lightweight Windows desktop recorder for instant replays. It keeps a rolling buffer of your screen and audio in the background and saves the last N seconds on demand, with a built-in editor for trimming, cropping, blurring, text, timeline cuts, and per-app audio mixing.
+ClipLite is a lightweight Windows desktop recorder for instant replays. It keeps a rolling buffer of your screen and audio in the background, saves the last N seconds on demand, and gives you a simple local library for finding and playing clips.
 
 > Native stack: C++20 / CMake / Ninja / MSVC, Win32 + WebView2, Media Foundation H.264/AAC. The UI is a local WebView, not a browser React site.
 
@@ -9,9 +9,9 @@ ClipLite is a lightweight Windows desktop recorder for instant replays. It keeps
 - **Instant replay buffer** — continuous desktop capture (DXGI Desktop Duplication) with a disk-backed ring of 10s MP4 segments.
 - **One-key save** — `Clip Now` hotkey (default `F8`) saves the last 60s (configurable).
 - **Game-aware naming** — executable + window title detection for readable clip names and thumbnails.
-- **Audio that stays correct** — desktop loopback + microphone + per-process stems (Windows process loopback). Each app and the mic get their own layer, so muting/solo/volume in the editor never drops the voice.
-- **Editor** — trim, split/delete/reorder segments, speed, crop/canvas (aspect presets + custom + fit/fill), blur boxes drawn on the preview, text overlays with position/size/color/font/alignment/timing, and export resolution/FPS/quality.
-- **Library** — local clip grid, search, play, delete, and autosaved editor projects (`*.edit.json` next to each clip).
+- **Audio capture** — record desktop and microphone audio with the devices you choose.
+- **Library** — search, filter, sort, and play saved clips; rename, copy, reveal, or delete files.
+- **Desktop interface** — a compact command bar with Capture, Library, and Settings workspaces.
 - **System integration** — tray icon, global hotkey, startup toggle, notifications, single-instance guard.
 
 ## Requirements
@@ -67,29 +67,30 @@ cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Release -DCLIPLITE_ASAN=ON
 
 1. Launch `ClipLite.exe` — it sits in the tray and starts buffering.
 2. Press the hotkey (`F8` by default) or click **Clip Now** to save.
-3. Open a clip from the library grid (search supported), then **Edit**.
-4. In the editor: select a timeline segment, drag trim handles, split at playhead, reorder, set speed, draw blur boxes on the preview, add text, choose crop/canvas, and adjust per-app audio (Mute/Solo + volume). Edits autosave to `<clip>.edit.json` and are non-destructive.
-5. **Save new clip** renders a new file; the original stays intact. Render progress and errors are shown in the editor footer.
-
-### Editor tips
-
-- The preview shows the selected segment and respects its speed.
-- Timeline clicks and waveform clicks seek the correct source segment.
-- Solo wins over mute: any soloed layer keeps its sound, all other removable layers are excluded.
-- Closing the editor flushes pending autosaves before leaving.
+3. Open **Library** to search or sort clips, then select one to play it. Use **More** for rename, copy, open-folder, and delete actions.
 
 ### Settings
 
-Replay length, FPS, bitrate, quality, desktop/mic toggles, capture source (display/window), mic picker + level meter, per-game capture toggle, start-with-Windows, notifications, and hotkey. Stored at:
+Use **Capture** to choose a display/window, toggle PC or microphone audio, and choose a microphone. **Settings** separates Recording, Audio, Capture, and General controls, with Save settings available in every category. Replay length, FPS, bitrate, quality, per-game capture, startup, notifications, and the hotkey are stored at:
 
 - `%LOCALAPPDATA%\ClipLite\settings.ini`
+
+### Editing the interface
+
+The local WebView assets are in `assets/web/`. Installation copies these files directly. When running `build/ClipLite.exe` after a web-only change that does not relink the app, refresh its asset directory:
+
+```powershell
+cmake -E copy_directory assets/web build/web
+```
+
+See `DESIGN.md` for the implemented visual system. System fonts and local SVG/CSS assets keep the interface independent of network services.
 
 ## Storage
 
 - Clips: `%USERPROFILE%\Videos\ClipLite` (configurable via settings)
 - Buffer (rolling segments): `%LOCALAPPDATA%\ClipLite\Buffer`
 - Thumbnails / peaks cache: `%LOCALAPPDATA%\ClipLite\thumbs`
-- Per-clip sidecars: `<clip>.apps.json`, `<clip>.edit.json`, `<clip>.stems/` (when per-app stems are available)
+- Per-clip audio metadata: `<clip>.apps.json` and `<clip>.stems/` (when per-app stems are available)
 
 ## Privacy
 
@@ -105,7 +106,7 @@ All capture and rendering happens locally on your machine. ClipLite does not upl
 
 ## Project status
 
-Active development. See `THIRD_PARTY_NOTICES.md` for attribution. No cloud auth, payments, or hosted database are included by design; the app uses mock/local data before any real crawling and respects system capture constraints.
+Active development. Capture, playback, and rendering use local files and Windows media APIs. See `THIRD_PARTY_NOTICES.md` for attribution.
 
 ## License
 
@@ -113,4 +114,4 @@ MIT — see `LICENSE`. Third-party notices in `THIRD_PARTY_NOTICES.md`. WebView2
 
 ## Contributing
 
-Issues and pull requests are welcome. Keep changes focused, preserve the WebView message contract (`window.chrome.webview.postMessage` <-> `window.__onNative`), and include tests or a clear manual verification for editor/timeline/audio changes. Run `cmake --build build && ctest --test-dir build --output-on-failure` before submitting.
+Issues and pull requests are welcome. Keep changes focused, preserve the WebView message contract (`window.chrome.webview.postMessage` <-> `window.__onNative`), and include a clear description of the change and its manual verification. Run `cmake --build build && ctest --test-dir build --output-on-failure` before submitting.
